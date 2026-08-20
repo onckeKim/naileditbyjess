@@ -8,10 +8,13 @@ availability, and policies.
 ## Stack
 
 - **Next.js 16** (App Router) + TypeScript + Tailwind CSS v4
-- **Prisma 7** + SQLite (via `@prisma/adapter-better-sqlite3`) — swap the
-  datasource for Postgres/MySQL in `prisma/schema.prisma` for production
+- **Prisma 7** + **Postgres** (via `@prisma/adapter-pg`) — any managed
+  Postgres works (Supabase, Neon, Vercel Postgres, Prisma Postgres, RDS,
+  etc.); see "Database" below
 - Cookie-based admin sessions (DB-backed), bcrypt password hashing
-- Local disk file storage for uploaded images (`public/uploads`)
+- Local disk file storage for uploaded images (`public/uploads`) — see the
+  note under "Deploying to Vercel," this needs to move to object storage
+  for a serverless deployment
 - Email sending is abstracted behind `src/lib/email.ts`. Without
   `RESEND_API_KEY` set, it only logs to the `EmailLog` table; with it set,
   real email goes out via [Resend](https://resend.com)
@@ -19,18 +22,62 @@ availability, and policies.
   UTC+2 — see `src/lib/timezone.ts`), independent of the server's own
   timezone
 
-## Getting Started
+## Database
+
+You need a Postgres connection string before anything else will run. Pick
+any provider — for a South Africa-based business, note that most managed
+Postgres providers don't have a South Africa region; **Supabase supports
+`af-south-1` (Cape Town)**, which is the closest-to-local option. Neon,
+Vercel Postgres, and Prisma Postgres are all fine too if latency isn't a
+concern (they typically run in US/EU regions).
+
+Once you have a connection string:
 
 ```bash
 npm install
+echo 'DATABASE_URL="postgresql://..."' > .env
 npx prisma generate
-npx prisma migrate dev   # creates ./dev.db and applies the schema
-npx prisma db seed       # seeds services, settings, sample reviews, admin user
+npx prisma db push        # syncs the schema to your database (no migration history yet)
+npx prisma db seed        # seeds services, settings, sample reviews, admin user
 npm run dev
 ```
 
 Open http://localhost:3000 for the public site, and http://localhost:3000/admin
 for the dashboard.
+
+This uses `prisma db push` rather than `prisma migrate dev` for now, since
+there's no committed migration history (the project started on SQLite,
+which isn't SQL-compatible with Postgres, so that history was dropped
+during the switch). Once the schema is stable, run
+`npx prisma migrate dev --name init` locally against your dev database to
+start a real migration history, and switch the Vercel build command below
+from `db push` to `prisma migrate deploy`.
+
+## Deploying to Vercel
+
+1. Provision a Postgres database (see above) and run `db push` + `db seed`
+   against it at least once from your own machine, so the schema exists and
+   the admin user is seeded — Vercel's build step only applies the schema,
+   it doesn't seed data.
+2. Go to [vercel.com/new](https://vercel.com/new) and import
+   `onckeKim/naileditbyjess`.
+3. Add these environment variables in the Vercel project settings:
+   - `DATABASE_URL` — required
+   - `RESEND_API_KEY`, `EMAIL_FROM` — optional, for real email
+   - `NEXT_PUBLIC_SITE_URL` — set to your Vercel URL, used to build links in emails
+   - `CRON_SECRET` — required if you wire up the reminders cron (see below)
+   - `ADMIN_SEED_EMAIL`, `ADMIN_SEED_PASSWORD` — only read by `prisma db seed`, not needed at runtime
+4. Deploy. Vercel auto-detects the `vercel-build` script in `package.json`
+   (`prisma db push --accept-data-loss && next build`), which syncs the
+   schema on every deploy — safe for an already-matching schema, since
+   there's nothing to lose.
+5. **Uploaded images won't persist.** `public/uploads` is local disk, which
+   Vercel's serverless functions don't share or persist across
+   deployments/instances. Service photos, gallery images, and inspiration
+   photos uploaded through the admin dashboard will work within a single
+   instance's lifetime and then disappear. Move `src/lib/storage.ts` to
+   object storage (Vercel Blob, S3, R2) before relying on this in
+   production.
 
 ### Admin login
 
@@ -131,22 +178,22 @@ Built directly into the app: everything above. A few things were
 credentials this environment doesn't have, or because they'd mean rewriting
 already-working, already-deployed functionality rather than adding to it:
 
-- **Supabase migration.** The data layer stays on Prisma (SQLite here,
-  designed to swap to Postgres/MySQL by changing the datasource + driver
-  adapter in `src/lib/prisma.ts`/`prisma/seed.ts`). Supabase-specific
-  features (its Auth, Storage, Postgres RLS) were not adopted — that would
-  be a full rewrite of the data/auth/storage layers, not an addition to what
-  already ships, and needs a Supabase project + service key this session
-  doesn't have.
+- **Supabase-as-a-platform.** The data layer runs on plain Prisma + Postgres,
+  which works with a Supabase-hosted Postgres database (recommended above for
+  South Africa latency) — but Supabase's own Auth, Storage, and Postgres RLS
+  features were not adopted. That would replace the working
+  auth/session/storage layers rather than add to them, and needs a Supabase
+  project + service key this session can't reach anyway (see the network
+  note below).
 - **Real payment gateway.** Deposits/balances are still recorded manually as
   EFT. The `depositStatus` state machine is shaped so a gateway webhook can
   drive the same transitions later without a rebuild.
 - **DB-level appointment overlap constraints.** Conflict checking happens in
   application code (`findConflict` in `src/lib/booking-service.ts`), not as
-  a database exclusion constraint — SQLite doesn't support those. A
-  production Postgres deployment under real concurrent load should add a
-  proper exclusion constraint (or serializable transaction) rather than
-  relying solely on the application check.
+  a database exclusion constraint. A production deployment under real
+  concurrent load should add a proper Postgres exclusion constraint (or
+  serializable transaction) rather than relying solely on the application
+  check.
 - **Multi-instance rate limiting.** `src/lib/rate-limit.ts` is a best-effort,
   single-process in-memory limiter on booking submission, uploads, and admin
   login. It won't share state across multiple serverless instances — move to
@@ -154,5 +201,17 @@ already-working, already-deployed functionality rather than adding to it:
 - **A cross-entity admin audit log.** Status changes on bookings are fully
   audited (`BookingStatusHistory`); edits to services/settings/gallery/etc.
   are not separately logged.
-- Uploaded images are written to `public/uploads` on local disk — move this
-  to object storage (S3, R2, etc.) for a multi-instance deployment.
+
+### A note on how this was built
+
+This app was developed in a sandboxed session whose outbound network access
+is limited to an allowlist — it could reach GitHub and npm, but not
+`api.prisma.io`, and in general can't open raw Postgres (non-HTTPS) TCP
+connections to any database provider. That means the Postgres migration
+above (schema provider, driver adapter, `db push` vs `migrate dev`) was
+written and verified by TypeScript-checking and building the app (which
+doesn't require a live database connection), but was **never actually run
+against a live Postgres** from within that session. It follows the standard,
+documented Prisma 7 + `@prisma/adapter-pg` pattern, but budget a few minutes
+to debug on first real connection rather than assuming it's guaranteed
+correct.
