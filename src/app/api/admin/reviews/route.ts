@@ -9,10 +9,12 @@ const schema = z.object({
   text: z.string().trim().min(1).max(2000),
   approved: z.boolean().default(true),
   featured: z.boolean().default(false),
+  imageUrl: z.string().nullable().optional(),
+  serviceId: z.string().nullable().optional(),
 });
 
 export const GET = withAdmin(async () => {
-  const reviews = await prisma.review.findMany({ orderBy: { createdAt: "desc" } });
+  const reviews = await prisma.review.findMany({ orderBy: { createdAt: "desc" }, include: { service: { select: { name: true } } } });
   return NextResponse.json({ reviews });
 });
 

@@ -17,7 +17,13 @@ export const GET = withAdmin(async (_req, ctx) => {
   const { id } = await ctx.params;
   const booking = await prisma.booking.findUnique({
     where: { id },
-    include: { service: true, client: true, addOns: { include: { service: true } }, policyAcceptance: true },
+    include: {
+      service: true,
+      client: true,
+      addOns: { include: { service: true } },
+      policyAcceptance: true,
+      statusHistory: { orderBy: { createdAt: "asc" } },
+    },
   });
   if (!booking) return NextResponse.json({ error: "Booking not found." }, { status: 404 });
   return NextResponse.json({ booking });

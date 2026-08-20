@@ -26,6 +26,31 @@ const schema = z.object({
   cancellationPolicyText: z.string().trim().max(6000).optional(),
   policyVersion: z.string().trim().max(40).optional(),
   eftDetails: z.string().trim().max(1000).optional(),
+
+  businessPhone: z.string().trim().max(30).optional(),
+  addressPublic: z.boolean().optional(),
+  faq: z.string().optional(),
+  declineReasonTemplates: z.string().optional(),
+  prepareForAppointmentText: z.string().trim().max(3000).optional(),
+
+  bookingEnabled: z.boolean().optional(),
+  minNoticeHours: z.number().int().min(0).max(720).optional(),
+  maxAdvanceDays: z.number().int().min(1).max(365).optional(),
+  bufferMinutes: z.number().int().min(0).max(240).optional(),
+  proposalExpiryHours: z.number().int().min(1).max(720).optional(),
+
+  remindersEnabled: z.boolean().optional(),
+  remind24hEnabled: z.boolean().optional(),
+  remind2hEnabled: z.boolean().optional(),
+  remind24hMessage: z.string().trim().max(500).optional(),
+  remind2hMessage: z.string().trim().max(500).optional(),
+
+  nailRepairsPolicyText: z.string().trim().max(3000).optional(),
+  nailRepairsPolicyPublished: z.boolean().optional(),
+  guestsChildrenPolicyText: z.string().trim().max(3000).optional(),
+  guestsChildrenPolicyPublished: z.boolean().optional(),
+  healthAllergyPolicyText: z.string().trim().max(3000).optional(),
+  healthAllergyPolicyPublished: z.boolean().optional(),
 });
 
 export const GET = withAdmin(async () => {

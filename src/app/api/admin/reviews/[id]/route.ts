@@ -9,6 +9,8 @@ const schema = z.object({
   text: z.string().trim().min(1).max(2000).optional(),
   approved: z.boolean().optional(),
   featured: z.boolean().optional(),
+  imageUrl: z.string().nullable().optional(),
+  serviceId: z.string().nullable().optional(),
 });
 
 export const PATCH = withAdmin(async (req, ctx) => {

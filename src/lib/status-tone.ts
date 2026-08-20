@@ -10,6 +10,7 @@ export function bookingStatusTone(status: BookingStatus): "neutral" | "success" 
     case "ACCEPTED_AWAITING_DEPOSIT":
     case "DEPOSIT_SUBMITTED":
       return "warning";
+    case "PROPOSAL_DECLINED":
     case "DECLINED":
     case "CANCELLED":
     case "NO_SHOW":

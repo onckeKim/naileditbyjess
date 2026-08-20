@@ -3,7 +3,9 @@ import { prisma } from "./prisma";
 import { generateBookingReference } from "./reference";
 import { calculateAddOnPrice, calculateDeposit, calculateMainServicePrice } from "./pricing";
 import { sendEmail } from "./email";
-import { requestReceivedEmail } from "./email-templates";
+import { requestReceivedEmail, notifyArtistNewRequestEmail } from "./email-templates";
+import { createManageBookingToken, manageBookingUrl } from "./tokens";
+import { hoursUntilSA } from "./timezone";
 import type { CreateBookingInput } from "./validation";
 
 export class BookingError extends Error {
@@ -63,9 +65,9 @@ function timeToMinutes(t: string) {
   return h * 60 + m;
 }
 
-export async function findConflict(date: string, time: string, durationMinutes: number, excludeBookingId?: string) {
-  const start = timeToMinutes(time);
-  const end = start + durationMinutes;
+export async function findConflict(date: string, time: string, durationMinutes: number, excludeBookingId?: string, bufferMinutes = 0) {
+  const start = timeToMinutes(time) - bufferMinutes;
+  const end = start + durationMinutes + bufferMinutes * 2;
 
   const candidates = await prisma.booking.findMany({
     where: {
@@ -89,6 +91,28 @@ export async function findConflict(date: string, time: string, durationMinutes: 
 }
 
 export async function createBookingRequest(input: CreateBookingInput) {
+  const settings = await prisma.businessSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
+
+  if (!settings.bookingEnabled) {
+    throw new BookingError(
+      "Online booking is not yet open. Please contact Nailed It Jess directly via WhatsApp to arrange an appointment.",
+      403
+    );
+  }
+
+  const hoursUntilAppointment = hoursUntilSA(input.requestedDate, input.requestedTime);
+  if (hoursUntilAppointment < settings.minNoticeHours) {
+    throw new BookingError(`Please choose a time at least ${settings.minNoticeHours} hours from now.`, 422);
+  }
+  if (hoursUntilAppointment > settings.maxAdvanceDays * 24) {
+    throw new BookingError(`Please choose a date within the next ${settings.maxAdvanceDays} days.`, 422);
+  }
+
+  const blocked = await prisma.blockedDate.findUnique({ where: { date: input.requestedDate } });
+  if (blocked) {
+    throw new BookingError("This date is unavailable. Please choose a different date.", 422);
+  }
+
   const client = await prisma.client.upsert({
     where: { email: input.clientEmail.toLowerCase() },
     update: { name: input.clientName, phone: input.clientPhone },
@@ -99,6 +123,23 @@ export async function createBookingRequest(input: CreateBookingInput) {
     },
   });
 
+  const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+  const duplicate = await prisma.booking.findFirst({
+    where: {
+      clientId: client.id,
+      serviceId: input.serviceId,
+      requestedDate: input.requestedDate,
+      requestedTime: input.requestedTime,
+      createdAt: { gte: twoMinutesAgo },
+    },
+  });
+  if (duplicate) {
+    throw new BookingError(
+      `You've already submitted this request (reference ${duplicate.reference}) — check your email, or wait a moment before submitting again.`,
+      409
+    );
+  }
+
   if (client.restricted) {
     throw new BookingError(
       "We're unable to process online bookings for this client at the moment. Please contact Nailed It Jess directly via WhatsApp.",
@@ -107,7 +148,6 @@ export async function createBookingRequest(input: CreateBookingInput) {
   }
 
   const quote = await quoteBooking(input.serviceId, input.addOns);
-  const settings = await prisma.businessSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
 
   let reference = generateBookingReference();
   for (let i = 0; i < 5; i++) {
@@ -154,11 +194,16 @@ export async function createBookingRequest(input: CreateBookingInput) {
             consentText,
           },
         },
+        statusHistory: {
+          create: { fromStatus: null, toStatus: "PENDING", changedBy: "SYSTEM" },
+        },
       },
       include: { service: true, addOns: { include: { service: true } }, policyAcceptance: true },
     });
     return created;
   });
+
+  const rawToken = await createManageBookingToken(booking.id);
 
   await sendEmail({
     to: booking.clientEmail,
@@ -169,8 +214,25 @@ export async function createBookingRequest(input: CreateBookingInput) {
       serviceName: booking.service.name,
       date: booking.requestedDate,
       time: booking.requestedTime,
+      manageUrl: manageBookingUrl(rawToken),
     }),
   });
+
+  if (settings.contactEmail) {
+    await sendEmail({
+      to: settings.contactEmail,
+      bookingId: booking.id,
+      ...notifyArtistNewRequestEmail({
+        businessName: settings.businessName,
+        reference: booking.reference,
+        clientName: booking.clientName,
+        clientPhone: booking.clientPhone,
+        serviceName: booking.service.name,
+        date: booking.requestedDate,
+        time: booking.requestedTime,
+      }),
+    });
+  }
 
   return booking;
 }

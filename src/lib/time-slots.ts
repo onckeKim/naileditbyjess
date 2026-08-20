@@ -1,4 +1,5 @@
 import type { BusinessHours } from "./business-hours";
+import { hoursUntilSA } from "./timezone";
 
 const DAY_KEYS: (keyof BusinessHours)[] = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
@@ -21,7 +22,15 @@ function toTimeStr(mins: number) {
   return `${h}:${m}`;
 }
 
-export function getAvailableTimeSlots(hours: BusinessHours, dateStr: string, intervalMinutes = 30) {
+export function getAvailableTimeSlots(
+  hours: BusinessHours,
+  dateStr: string,
+  opts: { intervalMinutes?: number; blockedDates?: string[]; minNoticeHours?: number } = {}
+) {
+  const { intervalMinutes = 30, blockedDates = [], minNoticeHours = 0 } = opts;
+
+  if (blockedDates.includes(dateStr)) return [];
+
   const day = hours[dayKeyForDate(dateStr)];
   if (!day || day.closed || !day.open || !day.close) return [];
 
@@ -29,7 +38,10 @@ export function getAvailableTimeSlots(hours: BusinessHours, dateStr: string, int
   const start = toMinutes(day.open);
   const end = toMinutes(day.close);
   for (let t = start; t < end; t += intervalMinutes) {
-    slots.push(toTimeStr(t));
+    const time = toTimeStr(t);
+    if (hoursUntilSA(dateStr, time) >= minNoticeHours) {
+      slots.push(time);
+    }
   }
   return slots;
 }
@@ -37,4 +49,10 @@ export function getAvailableTimeSlots(hours: BusinessHours, dateStr: string, int
 export function todayIsoDate() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export function addDaysIso(dateStr: string, days: number) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }

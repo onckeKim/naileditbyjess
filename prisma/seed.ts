@@ -149,10 +149,15 @@ const removalServices = [
 async function main() {
   console.log("Seeding Nailed It Jess database...");
 
+  // The seeded hours below are placeholders — treat seeding them as the
+  // administrator's initial setup step, which is why bookingEnabled is
+  // switched on here. Any BusinessSettings row created outside this seed
+  // script defaults to bookingEnabled: false per the schema, so booking
+  // stays closed until a real admin explicitly reviews and enables it.
   await prisma.businessSettings.upsert({
     where: { id: 1 },
     update: {},
-    create: { id: 1 },
+    create: { id: 1, bookingEnabled: true },
   });
 
   let sortOrder = 0;

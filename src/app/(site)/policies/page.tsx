@@ -25,6 +25,9 @@ const ICONS = {
   soak: "M12 3s6 6.5 6 11a6 6 0 1 1-12 0c0-4.5 6-11 6-11Z",
   brush: "M9 15l6-6m0 0 3-3 3 3-3 3m-3-3-6 6-3 6 6-3Z",
   card: "M3 7h18v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Zm0 0a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1M3 11h18",
+  repair: "M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2-2 2.6-2.6Z",
+  guests: "M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM2 20c0-3 3-5 6-5s6 2 6 5M13 15.5c2.5.3 5 2.2 5 4.5",
+  health: "M12 21s-7-4.35-9.5-8.5C.7 8.8 2.5 5 6 5c2 0 3.5 1.2 4 2.5C10.5 6.2 12 5 14 5c3.5 0 5.3 3.8 3.5 7.5C15 16.65 12 21 12 21ZM9 10h6M12 7v6",
 };
 
 export default async function PoliciesPage() {
@@ -89,6 +92,16 @@ export default async function PoliciesPage() {
     },
   ];
 
+  if (settings.nailRepairsPolicyPublished && settings.nailRepairsPolicyText) {
+    cards.push({ icon: ICONS.repair, title: "Nail Repairs", text: settings.nailRepairsPolicyText });
+  }
+  if (settings.guestsChildrenPolicyPublished && settings.guestsChildrenPolicyText) {
+    cards.push({ icon: ICONS.guests, title: "Guests & Children", text: settings.guestsChildrenPolicyText });
+  }
+  if (settings.healthAllergyPolicyPublished && settings.healthAllergyPolicyText) {
+    cards.push({ icon: ICONS.health, title: "Health & Allergy Disclosure", text: settings.healthAllergyPolicyText });
+  }
+
   return (
     <>
       <section className="bg-marble border-b border-marble py-16 md:py-20">
@@ -112,6 +125,13 @@ export default async function PoliciesPage() {
               <p className="text-sm text-charcoal leading-relaxed">{card.text}</p>
             </FrostedCard>
           ))}
+        </div>
+
+        <div className="mt-16 max-w-3xl mx-auto">
+          <h2 className="font-display text-2xl font-semibold text-black mb-4 text-center">Prepare for Your Appointment</h2>
+          <div className="bg-white border border-marble rounded-lg p-6 md:p-8 text-sm text-charcoal leading-relaxed whitespace-pre-line">
+            {settings.prepareForAppointmentText}
+          </div>
         </div>
 
         <div className="mt-16 max-w-3xl mx-auto">

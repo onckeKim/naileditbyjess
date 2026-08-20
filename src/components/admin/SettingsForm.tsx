@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { DAY_LABELS, parseBusinessHours, type BusinessHours } from "@/lib/business-hours";
+import { BlockedDatesManager } from "./BlockedDatesManager";
+import { RemindersLog } from "./RemindersLog";
+
+type FaqItem = { question: string; answer: string };
 
 type Settings = {
   businessName: string;
@@ -13,6 +17,8 @@ type Settings = {
   contactEmail: string;
   address: string;
   logoUrl: string | null;
+  businessPhone: string;
+  addressPublic: boolean;
   heroHeading: string;
   heroSubtext: string;
   heroImageUrl: string | null;
@@ -28,6 +34,25 @@ type Settings = {
   cancellationPolicyText: string;
   policyVersion: string;
   eftDetails: string;
+  prepareForAppointmentText: string;
+  faq: string;
+  declineReasonTemplates: string;
+  bookingEnabled: boolean;
+  minNoticeHours: number;
+  maxAdvanceDays: number;
+  bufferMinutes: number;
+  proposalExpiryHours: number;
+  remindersEnabled: boolean;
+  remind24hEnabled: boolean;
+  remind2hEnabled: boolean;
+  remind24hMessage: string;
+  remind2hMessage: string;
+  nailRepairsPolicyText: string;
+  nailRepairsPolicyPublished: boolean;
+  guestsChildrenPolicyText: string;
+  guestsChildrenPolicyPublished: boolean;
+  healthAllergyPolicyText: string;
+  healthAllergyPolicyPublished: boolean;
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -39,11 +64,53 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex items-center gap-2 text-sm text-charcoal">
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="accent-black" />
+      {label}
+    </label>
+  );
+}
+
 const inputClass = "w-full border border-marble rounded-sm px-3 py-2 text-sm focus:outline-none focus:border-black";
+
+function parseFaq(json: string): FaqItem[] {
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function faqToText(items: FaqItem[]) {
+  return items.map((i) => `${i.question} | ${i.answer}`).join("\n");
+}
+
+function textToFaq(text: string): FaqItem[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [question, ...rest] = line.split("|");
+      return { question: question.trim(), answer: rest.join("|").trim() };
+    });
+}
 
 export function SettingsForm({ initial }: { initial: Settings }) {
   const [values, setValues] = useState<Settings>(initial);
   const [hours, setHours] = useState<BusinessHours>(parseBusinessHours(initial.businessHours));
+  const [faqText, setFaqText] = useState(() => faqToText(parseFaq(initial.faq)));
+  const [declineTemplatesText, setDeclineTemplatesText] = useState(() => {
+    try {
+      const arr = JSON.parse(initial.declineReasonTemplates || "[]");
+      return Array.isArray(arr) ? arr.join("\n") : "";
+    } catch {
+      return "";
+    }
+  });
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,7 +143,17 @@ export function SettingsForm({ initial }: { initial: Settings }) {
       const res = await fetch("/api/admin/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...values, businessHours: JSON.stringify(hours) }),
+        body: JSON.stringify({
+          ...values,
+          businessHours: JSON.stringify(hours),
+          faq: JSON.stringify(textToFaq(faqText)),
+          declineReasonTemplates: JSON.stringify(
+            declineTemplatesText
+              .split("\n")
+              .map((l) => l.trim())
+              .filter(Boolean)
+          ),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not save settings.");
@@ -102,6 +179,9 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           <Field label="WhatsApp Number">
             <input className={inputClass} value={values.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} />
           </Field>
+          <Field label="Business Phone (optional)">
+            <input className={inputClass} value={values.businessPhone} onChange={(e) => set("businessPhone", e.target.value)} />
+          </Field>
           <Field label="Instagram Handle">
             <input className={inputClass} value={values.instagram} onChange={(e) => set("instagram", e.target.value)} />
           </Field>
@@ -110,6 +190,15 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           </Field>
           <Field label="Address">
             <input className={inputClass} value={values.address} onChange={(e) => set("address", e.target.value)} />
+          </Field>
+          <Field label="Address Visibility">
+            <div className="pt-2">
+              <Toggle
+                label="Show address publicly (off = only shared once a booking is confirmed)"
+                checked={values.addressPublic}
+                onChange={(v) => set("addressPublic", v)}
+              />
+            </div>
           </Field>
           <Field label="Logo">
             <div className="flex items-center gap-3">
@@ -177,6 +266,14 @@ export function SettingsForm({ initial }: { initial: Settings }) {
               <input className={inputClass} value={values.aboutLocation} onChange={(e) => set("aboutLocation", e.target.value)} />
             </Field>
           </div>
+          <Field label="Prepare for Your Appointment">
+            <textarea
+              className={inputClass}
+              rows={6}
+              value={values.prepareForAppointmentText}
+              onChange={(e) => set("prepareForAppointmentText", e.target.value)}
+            />
+          </Field>
         </div>
       </Card>
 
@@ -216,6 +313,60 @@ export function SettingsForm({ initial }: { initial: Settings }) {
       </Card>
 
       <Card className="p-6">
+        <h2 className="font-display text-xl font-semibold text-black mb-1">Online Booking &amp; Availability</h2>
+        <p className="text-xs text-medium-grey mb-4">
+          Online booking stays off until you turn it on here — review your business hours above first.
+        </p>
+        <div className="mb-4">
+          <Toggle label="Online booking is open to clients" checked={values.bookingEnabled} onChange={(v) => set("bookingEnabled", v)} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Minimum Notice (hours)">
+            <input type="number" min={0} className={inputClass} value={values.minNoticeHours} onChange={(e) => set("minNoticeHours", Number(e.target.value))} />
+          </Field>
+          <Field label="Maximum Advance Booking (days)">
+            <input type="number" min={1} className={inputClass} value={values.maxAdvanceDays} onChange={(e) => set("maxAdvanceDays", Number(e.target.value))} />
+          </Field>
+          <Field label="Buffer Between Appointments (minutes)">
+            <input type="number" min={0} className={inputClass} value={values.bufferMinutes} onChange={(e) => set("bufferMinutes", Number(e.target.value))} />
+          </Field>
+          <Field label="Proposed-Time Offer Expiry (hours)">
+            <input type="number" min={1} className={inputClass} value={values.proposalExpiryHours} onChange={(e) => set("proposalExpiryHours", Number(e.target.value))} />
+          </Field>
+        </div>
+
+        <div className="mt-6 pt-6 border-t border-marble">
+          <h3 className="text-sm font-medium text-black mb-3">Blocked Dates (holidays &amp; closures)</h3>
+          <BlockedDatesManager />
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="font-display text-xl font-semibold text-black mb-4">Appointment Reminders</h2>
+        <div className="flex flex-col gap-3 mb-4">
+          <Toggle label="Reminders enabled" checked={values.remindersEnabled} onChange={(v) => set("remindersEnabled", v)} />
+          <Toggle label="Send a reminder 24 hours before" checked={values.remind24hEnabled} onChange={(v) => set("remind24hEnabled", v)} />
+          <Toggle label="Send a second reminder 2 hours before" checked={values.remind2hEnabled} onChange={(v) => set("remind2hEnabled", v)} />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="24-Hour Reminder Message">
+            <textarea className={inputClass} rows={3} value={values.remind24hMessage} onChange={(e) => set("remind24hMessage", e.target.value)} />
+          </Field>
+          <Field label="2-Hour Reminder Message">
+            <textarea className={inputClass} rows={3} value={values.remind2hMessage} onChange={(e) => set("remind2hMessage", e.target.value)} />
+          </Field>
+        </div>
+        <p className="text-xs text-medium-grey mt-3 mb-4">
+          Reminders are sent by a scheduled job hitting <code>/api/cron/reminders</code> — see the README for how to connect an external
+          scheduler after deployment.
+        </p>
+        <div className="pt-4 border-t border-marble">
+          <h3 className="text-sm font-medium text-black mb-3">Recent Reminder Log</h3>
+          <RemindersLog />
+        </div>
+      </Card>
+
+      <Card className="p-6">
         <h2 className="font-display text-xl font-semibold text-black mb-4">Deposit &amp; Cancellation Policy</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Deposit Percentage">
@@ -248,6 +399,52 @@ export function SettingsForm({ initial }: { initial: Settings }) {
             <textarea className={inputClass} rows={4} value={values.eftDetails} onChange={(e) => set("eftDetails", e.target.value)} />
           </Field>
         </div>
+        <p className="text-xs text-medium-grey mt-2">
+          Changing the policy version does not affect bookings already made — each booking permanently records the version the client
+          agreed to at the time.
+        </p>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="font-display text-xl font-semibold text-black mb-1">Additional Policies</h2>
+        <p className="text-xs text-medium-grey mb-4">
+          Not yet confirmed for this business — each stays hidden from the public Policies page until you publish it.
+        </p>
+        <div className="flex flex-col gap-6">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-black">Nail Repairs</span>
+              <Toggle label="Published" checked={values.nailRepairsPolicyPublished} onChange={(v) => set("nailRepairsPolicyPublished", v)} />
+            </div>
+            <textarea className={inputClass} rows={3} value={values.nailRepairsPolicyText} onChange={(e) => set("nailRepairsPolicyText", e.target.value)} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-black">Guests &amp; Children</span>
+              <Toggle label="Published" checked={values.guestsChildrenPolicyPublished} onChange={(v) => set("guestsChildrenPolicyPublished", v)} />
+            </div>
+            <textarea className={inputClass} rows={3} value={values.guestsChildrenPolicyText} onChange={(e) => set("guestsChildrenPolicyText", e.target.value)} />
+          </div>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-black">Health &amp; Allergy Disclosure</span>
+              <Toggle label="Published" checked={values.healthAllergyPolicyPublished} onChange={(v) => set("healthAllergyPolicyPublished", v)} />
+            </div>
+            <textarea className={inputClass} rows={3} value={values.healthAllergyPolicyText} onChange={(e) => set("healthAllergyPolicyText", e.target.value)} />
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="font-display text-xl font-semibold text-black mb-4">FAQ</h2>
+        <p className="text-xs text-medium-grey mb-2">One per line, formatted as: Question | Answer</p>
+        <textarea className={inputClass} rows={6} value={faqText} onChange={(e) => setFaqText(e.target.value)} />
+      </Card>
+
+      <Card className="p-6">
+        <h2 className="font-display text-xl font-semibold text-black mb-4">Reusable Decline Messages</h2>
+        <p className="text-xs text-medium-grey mb-2">One reusable message per line — shown as quick options when declining a request.</p>
+        <textarea className={inputClass} rows={4} value={declineTemplatesText} onChange={(e) => setDeclineTemplatesText(e.target.value)} />
       </Card>
 
       {error && <p className="text-error text-sm bg-error/10 border border-error/30 rounded-sm px-3 py-2">{error}</p>}

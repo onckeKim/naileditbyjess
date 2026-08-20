@@ -14,6 +14,7 @@ export type BookingStatus =
   | "DEPOSIT_SUBMITTED"
   | "CONFIRMED"
   | "PROPOSED_NEW_TIME"
+  | "PROPOSAL_DECLINED"
   | "DECLINED"
   | "CANCELLED"
   | "NO_SHOW"
@@ -45,7 +46,8 @@ export const BOOKING_STATUS_LABELS: Record<BookingStatus, string> = {
   ACCEPTED_AWAITING_DEPOSIT: "Accepted, Awaiting Deposit",
   DEPOSIT_SUBMITTED: "Deposit Submitted",
   CONFIRMED: "Confirmed",
-  PROPOSED_NEW_TIME: "New Time Proposed",
+  PROPOSED_NEW_TIME: "Alternative Proposed",
+  PROPOSAL_DECLINED: "Alternative Declined",
   DECLINED: "Declined",
   CANCELLED: "Cancelled",
   NO_SHOW: "No Show",

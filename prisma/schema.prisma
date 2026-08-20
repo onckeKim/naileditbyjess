@@ -47,6 +47,38 @@ model BusinessSettings {
 
   eftDetails String @default("Bank: FNB\nAccount Name: Nailed It Jess\nAccount Number: 00000000\nBranch Code: 250655\nReference: Your booking reference")
 
+  // Contact & availability extras
+  businessPhone String  @default("")
+  addressPublic Boolean @default(false) // if false, address is only shared once a booking is confirmed
+
+  faq                    String @default("[]") // JSON array of {question, answer}
+  declineReasonTemplates String @default("[]") // JSON array of reusable decline messages
+
+  prepareForAppointmentText String @default("Arrive with clean, product-free nails where possible.\nSend any inspiration images ahead of your appointment.\nLet Jess know about any existing gel, acrylic, or other product that needs removing.\nMention any damaged nails before your appointment begins.\nSelect a soak-off add-on if existing product needs to be removed first.\nContact the studio via WhatsApp if you're running late.\nReview your selected service, estimated duration, deposit, and cancellation policy before you arrive.")
+
+  // Booking must be explicitly enabled once the admin has reviewed business hours.
+  bookingEnabled  Boolean @default(false)
+  minNoticeHours  Int     @default(2)
+  maxAdvanceDays  Int     @default(60)
+  bufferMinutes   Int     @default(0)
+  proposalExpiryHours Int @default(48)
+
+  // Appointment reminders
+  remindersEnabled  Boolean @default(true)
+  remind24hEnabled  Boolean @default(true)
+  remind2hEnabled   Boolean @default(false)
+  remind24hMessage  String  @default("This is a friendly reminder of your upcoming appointment with Nailed It Jess tomorrow.")
+  remind2hMessage   String  @default("This is a friendly reminder that your Nailed It Jess appointment is coming up in a couple of hours.")
+
+  // Additional policy cards not yet confirmed by the business — hidden from
+  // the public policies page until the admin explicitly publishes them.
+  nailRepairsPolicyText         String  @default("")
+  nailRepairsPolicyPublished    Boolean @default(false)
+  guestsChildrenPolicyText      String  @default("")
+  guestsChildrenPolicyPublished Boolean @default(false)
+  healthAllergyPolicyText       String  @default("")
+  healthAllergyPolicyPublished  Boolean @default(false)
+
   updatedAt DateTime @updatedAt
 }
 
@@ -79,6 +111,7 @@ model Service {
 
   bookings       Booking[]
   bookingAddOns  BookingAddOn[]
+  reviews        Review[]
 }
 
 // ---------------------------------------------------------------------------
@@ -118,9 +151,11 @@ model Booking {
 
   proposedDate String?
   proposedTime String?
+  proposalMessage    String?
+  proposalExpiresAt  DateTime?
 
   // PENDING | ACCEPTED_AWAITING_DEPOSIT | DEPOSIT_SUBMITTED | CONFIRMED |
-  // PROPOSED_NEW_TIME | DECLINED | CANCELLED | NO_SHOW | COMPLETED
+  // PROPOSED_NEW_TIME | PROPOSAL_DECLINED | DECLINED | CANCELLED | NO_SHOW | COMPLETED
   status String @default("PENDING")
 
   // NOT_REQUIRED | AWAITING_DEPOSIT | DEPOSIT_SUBMITTED | DEPOSIT_PAID |
@@ -151,12 +186,79 @@ model Booking {
   adminNotes String @default("")
 
   policyAcceptance PolicyAcceptance?
+  statusHistory    BookingStatusHistory[]
+  actionTokens     BookingActionToken[]
+  reminderLogs     ReminderLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status])
   @@index([requestedDate])
+}
+
+// ---------------------------------------------------------------------------
+// Audit trail of every booking status transition (who / when / note).
+model BookingStatusHistory {
+  id String @id @default(cuid())
+
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  fromStatus String?
+  toStatus   String
+  // ADMIN | CLIENT | SYSTEM
+  changedBy  String @default("ADMIN")
+  note       String?
+
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
+}
+
+// ---------------------------------------------------------------------------
+// Secure, expiring token granting a client access to their own booking
+// (view status, accept/decline a proposed time, request cancellation)
+// without needing an account. The raw token is only ever emailed to the
+// client — only its hash is stored.
+model BookingActionToken {
+  id        String @id @default(cuid())
+  tokenHash String @unique
+
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  @@index([bookingId])
+}
+
+// ---------------------------------------------------------------------------
+model ReminderLog {
+  id String @id @default(cuid())
+
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  // "24H" | "2H"
+  type   String
+  status String @default("SENT")
+
+  createdAt DateTime @default(now())
+
+  @@unique([bookingId, type])
+}
+
+// ---------------------------------------------------------------------------
+// Fully blocked calendar dates (holidays, temporary closures, personal time).
+model BlockedDate {
+  id     String @id @default(cuid())
+  date   String @unique // ISO date (yyyy-mm-dd)
+  reason String @default("")
+
+  createdAt DateTime @default(now())
 }
 
 model BookingAddOn {
@@ -193,9 +295,13 @@ model Review {
   clientName String
   rating     Int
   text       String
+  imageUrl   String?
   approved   Boolean  @default(false)
   featured   Boolean  @default(false)
   createdAt  DateTime @default(now())
+
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id], onDelete: SetNull)
 }
 
 // ---------------------------------------------------------------------------
@@ -219,13 +325,24 @@ model AdminUser {
 
 // ---------------------------------------------------------------------------
 model EmailLog {
-  id        String   @id @default(cuid())
-  to        String
-  subject   String
-  body      String
+  id      String @id @default(cuid())
+  to      String
+  subject String
+  body    String
+  // A short machine-readable tag identifying which template was used, e.g.
+  // "REQUEST_RECEIVED", "REMINDER_24H" — for filtering/debugging.
+  type      String  @default("GENERAL")
   bookingId String?
-  status    String   @default("SENT") // SENT | FAILED (stubbed provider)
+
+  // SENT | FAILED | LOGGED_ONLY (no real provider configured)
+  status            String  @default("LOGGED_ONLY")
+  providerMessageId String?
+  failureReason     String?
+  retryCount        Int     @default(0)
+
   createdAt DateTime @default(now())
+
+  @@index([bookingId])
 }
 
 // ---------------------------------------------------------------------------

@@ -4,19 +4,27 @@ import { sendEmail } from "./email";
 import {
   acceptedAwaitingDepositEmail,
   cancellationEmail,
+  completedEmail,
   confirmedEmail,
   declinedEmail,
+  depositRecordedEmail,
   noShowEmail,
+  notifyArtistProposalRespondedEmail,
+  proposalAcceptedEmail,
+  proposalDeclinedEmail,
   proposedNewTimeEmail,
+  rescheduledEmail,
 } from "./email-templates";
+import { buildSummaryContext } from "./email-context";
 import { formatRand } from "./pricing";
 import { findConflict, BookingError } from "./booking-service";
+import { hoursUntilSA } from "./timezone";
+import { manageBookingUrl, createManageBookingToken } from "./tokens";
+
+const BOOKING_INCLUDE = { service: true, client: true, addOns: { include: { service: true } } } as const;
 
 async function getBookingOrThrow(id: string) {
-  const booking = await prisma.booking.findUnique({
-    where: { id },
-    include: { service: true, client: true, addOns: { include: { service: true } } },
-  });
+  const booking = await prisma.booking.findUnique({ where: { id }, include: BOOKING_INCLUDE });
   if (!booking) throw new BookingError("Booking not found.", 404);
   return booking;
 }
@@ -25,12 +33,22 @@ async function getSettings() {
   return prisma.businessSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
 }
 
+async function recordHistory(bookingId: string, fromStatus: string | null, toStatus: string, changedBy: "ADMIN" | "CLIENT" | "SYSTEM", note?: string) {
+  await prisma.bookingStatusHistory.create({ data: { bookingId, fromStatus, toStatus, changedBy, note } });
+}
+
+function whatsappHref(number: string, message: string) {
+  const digits = number.replace(/[^0-9]/g, "");
+  const withCountryCode = digits.startsWith("0") ? `27${digits.slice(1)}` : digits;
+  return `https://wa.me/${withCountryCode}?text=${encodeURIComponent(message)}`;
+}
+
 export async function acceptBooking(id: string) {
   const booking = await getBookingOrThrow(id);
   const settings = await getSettings();
 
   const duration = booking.service.durationMinutes + booking.addOns.reduce((s, a) => s + (a.service.durationMinutes || 0), 0);
-  const conflict = await findConflict(booking.requestedDate, booking.requestedTime, duration, booking.id);
+  const conflict = await findConflict(booking.requestedDate, booking.requestedTime, duration, booking.id, settings.bufferMinutes);
   if (conflict) {
     throw new BookingError(
       `This time overlaps with an existing booking (${conflict.reference}). Propose a different time instead.`,
@@ -45,50 +63,54 @@ export async function acceptBooking(id: string) {
   const updated = await prisma.booking.update({
     where: { id },
     data: { status: newStatus, depositStatus: newDepositStatus },
-    include: { service: true },
+    include: BOOKING_INCLUDE,
   });
+  await recordHistory(id, booking.status, newStatus, "ADMIN");
+
+  const ctx = await buildSummaryContext(updated, settings, { includeAddress: false });
 
   if (requiresDeposit) {
     await sendEmail({
       to: booking.clientEmail,
       bookingId: booking.id,
-      ...acceptedAwaitingDepositEmail({
-        businessName: settings.businessName,
-        reference: booking.reference,
-        serviceName: booking.service.name,
-        date: booking.requestedDate,
-        time: booking.requestedTime,
-        depositAmount: formatRand(booking.depositAmount),
-        remainingBalance: formatRand(booking.remainingBalance),
-        totalAmount: formatRand(booking.estimatedTotal),
-        eftDetails: settings.eftDetails,
-      }),
+      ...acceptedAwaitingDepositEmail({ businessName: settings.businessName, eftDetails: settings.eftDetails, ...ctx }),
     });
   } else {
     await sendEmail({
       to: booking.clientEmail,
       bookingId: booking.id,
-      ...confirmedEmail({
-        businessName: settings.businessName,
-        reference: booking.reference,
-        serviceName: booking.service.name,
-        date: booking.requestedDate,
-        time: booking.requestedTime,
-      }),
+      ...confirmedEmail(await buildSummaryContext(updated, settings, { includeAddress: true })),
     });
   }
 
   return updated;
 }
 
-export async function proposeNewTime(id: string, date: string, time: string) {
+export async function proposeNewTime(id: string, date: string, time: string, message?: string) {
   const booking = await getBookingOrThrow(id);
   const settings = await getSettings();
 
+  const expiresAt = new Date(Date.now() + settings.proposalExpiryHours * 60 * 60 * 1000);
+
   const updated = await prisma.booking.update({
     where: { id },
-    data: { status: "PROPOSED_NEW_TIME", proposedDate: date, proposedTime: time },
+    data: {
+      status: "PROPOSED_NEW_TIME",
+      proposedDate: date,
+      proposedTime: time,
+      proposalMessage: message || null,
+      proposalExpiresAt: expiresAt,
+    },
   });
+  await recordHistory(id, booking.status, "PROPOSED_NEW_TIME", "ADMIN", message);
+
+  // The email's Accept/Decline buttons both land on the same secure,
+  // token-gated manage page (a safe GET) rather than triggering the
+  // state change directly from the email link — some mail clients and
+  // security scanners pre-fetch links, which would otherwise risk an
+  // accidental accept. The manage page itself performs the mutating
+  // action via an explicit button click (POST).
+  const manageUrl = manageBookingUrl(await createManageBookingToken(id));
 
   await sendEmail({
     to: booking.clientEmail,
@@ -97,10 +119,119 @@ export async function proposeNewTime(id: string, date: string, time: string) {
       businessName: settings.businessName,
       reference: booking.reference,
       serviceName: booking.service.name,
+      requestedDate: booking.requestedDate,
+      requestedTime: booking.requestedTime,
       proposedDate: date,
       proposedTime: time,
+      message,
+      expiresAt: expiresAt.toLocaleString("en-ZA", { dateStyle: "medium", timeStyle: "short" }),
+      acceptUrl: manageUrl,
+      declineUrl: manageUrl,
     }),
   });
+
+  return updated;
+}
+
+/**
+ * A client accepting or declining a proposed alternative time. Shared by the
+ * admin-assisted flow (staff acting on the client's behalf, e.g. over the
+ * phone) and the public token-gated /manage page.
+ */
+export async function respondToProposal(id: string, accept: boolean, changedBy: "ADMIN" | "CLIENT" = "CLIENT") {
+  const booking = await getBookingOrThrow(id);
+  const settings = await getSettings();
+
+  if (booking.status !== "PROPOSED_NEW_TIME") {
+    throw new BookingError("This booking no longer has a pending proposed time.", 409);
+  }
+  if (booking.proposalExpiresAt && booking.proposalExpiresAt < new Date()) {
+    throw new BookingError("This proposed time has expired. Please contact Nailed It Jess to check availability.", 410);
+  }
+  if (!booking.proposedDate || !booking.proposedTime) {
+    throw new BookingError("No proposed time is set on this booking.", 409);
+  }
+
+  if (!accept) {
+    const updated = await prisma.booking.update({
+      where: { id },
+      data: { status: "PROPOSAL_DECLINED" },
+    });
+    await recordHistory(id, booking.status, "PROPOSAL_DECLINED", changedBy);
+
+    await sendEmail({
+      to: booking.clientEmail,
+      bookingId: booking.id,
+      ...proposalDeclinedEmail({ businessName: settings.businessName, reference: booking.reference, serviceName: booking.service.name }),
+    });
+    if (settings.contactEmail) {
+      await sendEmail({
+        to: settings.contactEmail,
+        bookingId: booking.id,
+        ...notifyArtistProposalRespondedEmail({
+          businessName: settings.businessName,
+          reference: booking.reference,
+          clientName: booking.clientName,
+          accepted: false,
+        }),
+      });
+    }
+    return updated;
+  }
+
+  const duration = booking.service.durationMinutes + booking.addOns.reduce((s, a) => s + (a.service.durationMinutes || 0), 0);
+  const conflict = await findConflict(booking.proposedDate, booking.proposedTime, duration, booking.id, settings.bufferMinutes);
+  if (conflict) {
+    throw new BookingError("Sorry, this proposed time is no longer available. Please contact Nailed It Jess.", 409);
+  }
+
+  const requiresDeposit = booking.depositAmount > 0;
+  const newStatus = requiresDeposit ? "ACCEPTED_AWAITING_DEPOSIT" : "CONFIRMED";
+  const newDepositStatus = requiresDeposit ? "AWAITING_DEPOSIT" : "NOT_REQUIRED";
+
+  const updated = await prisma.booking.update({
+    where: { id },
+    data: {
+      requestedDate: booking.proposedDate,
+      requestedTime: booking.proposedTime,
+      proposedDate: null,
+      proposedTime: null,
+      proposalMessage: null,
+      proposalExpiresAt: null,
+      status: newStatus,
+      depositStatus: newDepositStatus,
+    },
+    include: BOOKING_INCLUDE,
+  });
+  await recordHistory(id, booking.status, newStatus, changedBy, "Client accepted the proposed time.");
+
+  const ctx = await buildSummaryContext(updated, settings, { includeAddress: false });
+  await sendEmail({
+    to: booking.clientEmail,
+    bookingId: booking.id,
+    ...proposalAcceptedEmail(ctx),
+  });
+
+  if (requiresDeposit) {
+    await sendEmail({
+      to: booking.clientEmail,
+      bookingId: booking.id,
+      ...acceptedAwaitingDepositEmail({ businessName: settings.businessName, eftDetails: settings.eftDetails, ...ctx }),
+    });
+  }
+
+  if (settings.contactEmail) {
+    await sendEmail({
+      to: settings.contactEmail,
+      bookingId: booking.id,
+      ...notifyArtistProposalRespondedEmail({
+        businessName: settings.businessName,
+        reference: booking.reference,
+        clientName: booking.clientName,
+        accepted: true,
+      }),
+    });
+  }
 
   return updated;
 }
@@ -113,16 +244,12 @@ export async function declineBooking(id: string, reason?: string) {
     where: { id },
     data: { status: "DECLINED", adminNotes: reason ? `${booking.adminNotes}\nDeclined: ${reason}`.trim() : booking.adminNotes },
   });
+  await recordHistory(id, booking.status, "DECLINED", "ADMIN", reason);
 
   await sendEmail({
     to: booking.clientEmail,
     bookingId: booking.id,
-    ...declinedEmail({
-      businessName: settings.businessName,
-      reference: booking.reference,
-      serviceName: booking.service.name,
-      reason,
-    }),
+    ...declinedEmail({ businessName: settings.businessName, reference: booking.reference, serviceName: booking.service.name, reason }),
   });
 
   return updated;
@@ -142,28 +269,57 @@ export async function recordDeposit(id: string, depositStatus: string, method?: 
     data.status = "CONFIRMED";
   }
 
-  const updated = await prisma.booking.update({ where: { id }, data });
+  const updated = await prisma.booking.update({ where: { id }, data, include: BOOKING_INCLUDE });
+  if (depositStatus !== booking.depositStatus) {
+    await recordHistory(id, booking.status, updated.status, "ADMIN", `Deposit status: ${depositStatus}`);
+  }
 
   if (depositStatus === "DEPOSIT_PAID") {
     await sendEmail({
       to: booking.clientEmail,
       bookingId: booking.id,
-      ...confirmedEmail({
-        businessName: settings.businessName,
-        reference: booking.reference,
-        serviceName: booking.service.name,
-        date: booking.requestedDate,
-        time: booking.requestedTime,
-      }),
+      ...confirmedEmail(await buildSummaryContext(updated, settings, { includeAddress: true })),
+    });
+  } else if (depositStatus === "DEPOSIT_SUBMITTED") {
+    await sendEmail({
+      to: booking.clientEmail,
+      bookingId: booking.id,
+      ...depositRecordedEmail(await buildSummaryContext(updated, settings, { includeAddress: false })),
     });
   }
 
   return updated;
 }
 
+/** Admin directly reschedules an already-confirmed booking (not via the client-facing propose/accept flow). */
+export async function rescheduleBooking(id: string, date: string, time: string) {
+  const booking = await getBookingOrThrow(id);
+  const settings = await getSettings();
+
+  const duration = booking.service.durationMinutes + booking.addOns.reduce((s, a) => s + (a.service.durationMinutes || 0), 0);
+  const conflict = await findConflict(date, time, duration, booking.id, settings.bufferMinutes);
+  if (conflict) {
+    throw new BookingError(`This time overlaps with an existing booking (${conflict.reference}).`, 409);
+  }
+
+  const updated = await prisma.booking.update({
+    where: { id },
+    data: { requestedDate: date, requestedTime: time },
+    include: BOOKING_INCLUDE,
+  });
+  await recordHistory(id, booking.status, booking.status, "ADMIN", `Rescheduled from ${booking.requestedDate} ${booking.requestedTime} to ${date} ${time}`);
+
+  await sendEmail({
+    to: booking.clientEmail,
+    bookingId: booking.id,
+    ...rescheduledEmail(await buildSummaryContext(updated, settings, { includeAddress: true })),
+  });
+
+  return updated;
+}
+
 function hoursUntil(date: string, time: string) {
-  const target = new Date(`${date}T${time}:00`);
-  return (target.getTime() - Date.now()) / (1000 * 60 * 60);
+  return hoursUntilSA(date, time);
 }
 
 /**
@@ -172,13 +328,27 @@ function hoursUntil(date: string, time: string) {
  * outcome without double-charging, per the admin's configured
  * cancellationFeeMode (default: a forfeited deposit satisfies the fee).
  */
+export const CANCELLABLE_STATUSES: readonly string[] = [
+  "PENDING",
+  "ACCEPTED_AWAITING_DEPOSIT",
+  "DEPOSIT_SUBMITTED",
+  "CONFIRMED",
+  "PROPOSED_NEW_TIME",
+  "PROPOSAL_DECLINED",
+];
+
 async function applyLateCancellationOutcome(
   bookingId: string,
   status: "CANCELLED" | "NO_SHOW",
-  reason?: string
+  reason: string | undefined,
+  changedBy: "ADMIN" | "CLIENT"
 ) {
   const booking = await getBookingOrThrow(bookingId);
   const settings = await getSettings();
+
+  if (status === "CANCELLED" && !CANCELLABLE_STATUSES.includes(booking.status)) {
+    throw new BookingError("This booking can no longer be cancelled.", 409);
+  }
 
   const isLate = status === "NO_SHOW" || hoursUntil(booking.requestedDate, booking.requestedTime) < settings.lateCancellationHours;
   const depositWasPaid = booking.depositStatus === "DEPOSIT_PAID";
@@ -217,11 +387,12 @@ async function applyLateCancellationOutcome(
   }
 
   const updated = await prisma.booking.update({ where: { id: bookingId }, data });
+  await recordHistory(bookingId, booking.status, status, changedBy, reason);
   return { booking: updated, feeMessage, settings, original: booking };
 }
 
-export async function cancelBooking(id: string, reason?: string) {
-  const { booking, feeMessage, settings } = await applyLateCancellationOutcome(id, "CANCELLED", reason);
+export async function cancelBooking(id: string, reason?: string, changedBy: "ADMIN" | "CLIENT" = "ADMIN") {
+  const { booking, feeMessage, settings } = await applyLateCancellationOutcome(id, "CANCELLED", reason, changedBy);
   await sendEmail({
     to: booking.clientEmail,
     bookingId: booking.id,
@@ -231,7 +402,7 @@ export async function cancelBooking(id: string, reason?: string) {
 }
 
 export async function markNoShow(id: string, restrictClient: boolean, restrictionReason?: string) {
-  const { booking, feeMessage, settings, original } = await applyLateCancellationOutcome(id, "NO_SHOW");
+  const { booking, feeMessage, settings, original } = await applyLateCancellationOutcome(id, "NO_SHOW", undefined, "ADMIN");
 
   if (restrictClient) {
     await prisma.client.update({
@@ -250,5 +421,25 @@ export async function markNoShow(id: string, restrictClient: boolean, restrictio
 }
 
 export async function markCompleted(id: string) {
-  return prisma.booking.update({ where: { id }, data: { status: "COMPLETED" } });
+  const booking = await getBookingOrThrow(id);
+  const settings = await getSettings();
+
+  const updated = await prisma.booking.update({ where: { id }, data: { status: "COMPLETED" } });
+  await recordHistory(id, booking.status, "COMPLETED", "ADMIN");
+
+  await sendEmail({
+    to: booking.clientEmail,
+    bookingId: booking.id,
+    ...completedEmail({
+      businessName: settings.businessName,
+      reference: booking.reference,
+      clientName: booking.clientName,
+      reviewWhatsAppUrl: whatsappHref(
+        settings.whatsapp,
+        `Hi Jess! I just had my appointment (${booking.reference}) and would love to leave a review.`
+      ),
+    }),
+  });
+
+  return updated;
 }

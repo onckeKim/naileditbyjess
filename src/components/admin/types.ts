@@ -7,6 +7,8 @@ export type AdminBooking = {
   requestedTime: string;
   proposedDate: string | null;
   proposedTime: string | null;
+  proposalMessage: string | null;
+  proposalExpiresAt: string | null;
   status: string;
   depositStatus: string;
   depositMethod: string | null;
@@ -32,4 +34,5 @@ export type AdminBooking = {
   client: { id: string; name: string; email: string; phone: string; restricted: boolean; restrictionReason: string | null };
   addOns: { id: string; nailCount: number | null; calculatedPrice: number; service: { id: string; name: string } }[];
   policyAcceptance: { id: string; policyVersion: string; acceptedAt: string; consentText: string } | null;
+  statusHistory: { id: string; fromStatus: string | null; toStatus: string; changedBy: string; note: string | null; createdAt: string }[];
 };

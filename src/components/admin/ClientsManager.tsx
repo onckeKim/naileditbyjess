@@ -33,6 +33,10 @@ export function ClientsManager() {
   }, []);
 
   async function setRestricted(client: Client, restricted: boolean) {
+    const message = restricted
+      ? `Restrict ${client.name} from booking online?`
+      : `Remove the booking restriction for ${client.name}?`;
+    if (!window.confirm(message)) return;
     await fetch(`/api/admin/clients/${client.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -54,6 +58,11 @@ export function ClientsManager() {
         <Button size="sm" variant="secondary" onClick={() => load(q)}>
           Search
         </Button>
+        <a href={`/api/admin/clients?format=csv${q ? `&q=${encodeURIComponent(q)}` : ""}`} target="_blank" rel="noopener noreferrer">
+          <Button size="sm" variant="secondary">
+            Export CSV
+          </Button>
+        </a>
       </div>
 
       {loading ? (

@@ -8,7 +8,11 @@ export const metadata: Metadata = { title: "Reviews — Nailed It Jess" };
 export const dynamic = "force-dynamic";
 
 export default async function ReviewsPage() {
-  const reviews = await prisma.review.findMany({ where: { approved: true }, orderBy: { createdAt: "desc" } });
+  const reviews = await prisma.review.findMany({
+    where: { approved: true },
+    orderBy: { createdAt: "desc" },
+    include: { service: { select: { name: true } } },
+  });
   const average = reviews.length ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length : 0;
 
   return (
@@ -35,9 +39,16 @@ export default async function ReviewsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {reviews.map((r) => (
               <Card key={r.id} className="p-6 flex flex-col gap-3">
+                {r.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={r.imageUrl} alt="" className="w-full aspect-[4/3] object-cover rounded-lg border border-marble" />
+                )}
                 <StarRating rating={r.rating} />
                 <p className="text-sm text-charcoal leading-relaxed">&ldquo;{r.text}&rdquo;</p>
-                <p className="text-xs tracking-wide uppercase text-medium-grey mt-auto">{r.clientName}</p>
+                <p className="text-xs tracking-wide uppercase text-medium-grey mt-auto">
+                  {r.clientName}
+                  {r.service ? ` · ${r.service.name}` : ""}
+                </p>
               </Card>
             ))}
           </div>

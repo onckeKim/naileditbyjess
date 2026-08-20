@@ -55,7 +55,7 @@ export default async function HomePage() {
         hours={parseBusinessHours(settings.businessHours)}
         whatsapp={settings.whatsapp}
         instagram={settings.instagram}
-        address={settings.address}
+        address={settings.addressPublic ? settings.address : ""}
       />
     </>
   );

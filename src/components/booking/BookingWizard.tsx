@@ -13,7 +13,7 @@ import {
   formatRand,
 } from "@/lib/pricing";
 import { parseBusinessHours } from "@/lib/business-hours";
-import { getAvailableTimeSlots, todayIsoDate } from "@/lib/time-slots";
+import { getAvailableTimeSlots, todayIsoDate, addDaysIso } from "@/lib/time-slots";
 import { AddOnRow } from "./AddOnRow";
 import type { ServiceOption, AddOnSelectionState } from "./types";
 
@@ -29,12 +29,18 @@ function WizardInner({
   depositPercentage,
   policyVersion,
   businessHours,
+  blockedDates,
+  minNoticeHours,
+  maxAdvanceDays,
 }: {
   primaryServices: ServiceOption[];
   addOnServices: ServiceOption[];
   depositPercentage: number;
   policyVersion: string;
   businessHours: string;
+  blockedDates: string[];
+  minNoticeHours: number;
+  maxAdvanceDays: number;
 }) {
   const searchParams = useSearchParams();
   const preselected = searchParams.get("service");
@@ -56,7 +62,11 @@ function WizardInner({
   const [result, setResult] = useState<{ reference: string; estimatedTotal: number; depositAmount: number; remainingBalance: number } | null>(null);
 
   const hours = useMemo(() => parseBusinessHours(businessHours), [businessHours]);
-  const timeSlots = useMemo(() => (date ? getAvailableTimeSlots(hours, date) : []), [hours, date]);
+  const timeSlots = useMemo(
+    () => (date ? getAvailableTimeSlots(hours, date, { blockedDates, minNoticeHours }) : []),
+    [hours, date, blockedDates, minNoticeHours]
+  );
+  const maxDate = useMemo(() => addDaysIso(todayIsoDate(), maxAdvanceDays), [maxAdvanceDays]);
 
   const service = primaryServices.find((s) => s.id === serviceId) || null;
 
@@ -273,6 +283,7 @@ function WizardInner({
                 <input
                   type="date"
                   min={todayIsoDate()}
+                  max={maxDate}
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
                   className="w-full border border-marble rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-black"
@@ -464,6 +475,9 @@ export function BookingWizard(props: {
   depositPercentage: number;
   policyVersion: string;
   businessHours: string;
+  blockedDates: string[];
+  minNoticeHours: number;
+  maxAdvanceDays: number;
 }) {
   return (
     <Suspense fallback={null}>
