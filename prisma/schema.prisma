@@ -1,0 +1,237 @@
+// Nailed It Jess — booking platform schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Singleton row holding all editable business content & policy settings.
+// ---------------------------------------------------------------------------
+model BusinessSettings {
+  id Int @id @default(1)
+
+  businessName String @default("Nailed It Jess")
+  established  String @default("2021")
+  whatsapp     String @default("060 504 2759")
+  instagram    String @default("@_nailed_it_jess")
+  contactEmail String @default("")
+  address      String @default("")
+  logoUrl      String?
+
+  heroHeading    String @default("Your next nail set starts here.")
+  heroSubtext    String @default("Discover professional nail services designed to match your style. Browse our work, choose your service, and request your preferred appointment online.")
+  heroImageUrl   String?
+
+  aboutBio             String @default("Welcome to Nailed It Jess, a professional nail service established in 2021. Every appointment is approached with care, creativity, and attention to detail, helping each client leave with a nail set that reflects their style.")
+  aboutQualifications  String @default("Trained and experienced in gel overlays, gel extensions, and nail art application.")
+  aboutLocation        String @default("By appointment — location details shared upon booking confirmation.")
+  aboutYearsExperience String @default("3+ years")
+
+  businessHours String @default("{\"mon\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"tue\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"wed\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"thu\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"fri\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"sat\":{\"open\":\"09:00\",\"close\":\"14:00\",\"closed\":false},\"sun\":{\"open\":\"\",\"close\":\"\",\"closed\":true}}")
+
+  // Deposit & cancellation policy configuration
+  depositPercentage             Int     @default(50)
+  lateCancellationHours         Int     @default(24)
+  lateCancellationFeePercentage Int     @default(50)
+  // "FORFEIT_SATISFIES" | "ADDITIONAL_FEE" | "MANUAL_REVIEW"
+  cancellationFeeMode            String @default("FORFEIT_SATISFIES")
+
+  cancellationPolicyText String @default("Cancellations must be made at least 24 hours before the scheduled appointment.\n\nCancellations made within 24 hours of the appointment may result in the client being liable for 50% of the appointment total before another appointment can be scheduled.\n\nFor example, if the previous appointment total was R100, a cancellation fee of R50 may need to be paid before a new appointment can be booked.\n\nApplicable cancellation fees must be paid by EFT.\n\nFailure to arrive for a scheduled appointment is treated as a cancellation or no-show.\n\nWhere a 50% booking deposit has already been paid, a cancellation within 24 hours of the appointment will result in the deposit being forfeited.")
+
+  policyVersion String @default("2026-08-20")
+
+  eftDetails String @default("Bank: FNB\nAccount Name: Nailed It Jess\nAccount Number: 00000000\nBranch Code: 250655\nReference: Your booking reference")
+
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+model Service {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String  @default("")
+  // "PRIMARY" | "ART_ADDON" | "REMOVAL"
+  category    String
+  // "FIXED" | "PER_NAIL" | "PER_NAIL_OR_FULL_SET" | "RANGE"
+  pricingType String
+
+  priceFixed   Float?
+  priceMin     Float?
+  priceMax     Float?
+  pricePerNail Float?
+  priceFullSet Float?
+
+  durationMinutes           Int     @default(60)
+  depositOverridePercentage Int?
+  imageUrl                  String?
+
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings       Booking[]
+  bookingAddOns  BookingAddOn[]
+}
+
+// ---------------------------------------------------------------------------
+model Client {
+  id    String @id @default(cuid())
+  name  String
+  email String @unique
+  phone String
+
+  restricted        Boolean @default(false)
+  restrictionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  bookings          Booking[]
+  policyAcceptances PolicyAcceptance[]
+
+  @@index([phone])
+}
+
+// ---------------------------------------------------------------------------
+model Booking {
+  id        String @id @default(cuid())
+  reference String @unique
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  addOns BookingAddOn[]
+
+  requestedDate String // ISO date (yyyy-mm-dd)
+  requestedTime String // HH:mm
+
+  proposedDate String?
+  proposedTime String?
+
+  // PENDING | ACCEPTED_AWAITING_DEPOSIT | DEPOSIT_SUBMITTED | CONFIRMED |
+  // PROPOSED_NEW_TIME | DECLINED | CANCELLED | NO_SHOW | COMPLETED
+  status String @default("PENDING")
+
+  // NOT_REQUIRED | AWAITING_DEPOSIT | DEPOSIT_SUBMITTED | DEPOSIT_PAID |
+  // DEPOSIT_FAILED | DEPOSIT_REFUNDED | DEPOSIT_FORFEITED
+  depositStatus String @default("NOT_REQUIRED")
+  depositMethod String? // e.g. "EFT"
+  depositRecordedAt DateTime?
+
+  nailArtCount Int?
+
+  serviceSubtotal Float
+  addOnsTotal     Float @default(0)
+  estimatedTotal  Float
+  depositAmount   Float
+  remainingBalance Float
+
+  clientName  String
+  clientEmail String
+  clientPhone String
+  designNotes String  @default("")
+  inspirationImageUrl String?
+
+  // NONE | SATISFIED_BY_DEPOSIT | ADDITIONAL_FEE_DUE | FEE_PAID | MANUAL_REVIEW
+  cancellationFeeStatus String  @default("NONE")
+  cancellationFeeAmount Float?
+  cancellationReason    String?
+
+  adminNotes String @default("")
+
+  policyAcceptance PolicyAcceptance?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([requestedDate])
+}
+
+model BookingAddOn {
+  id String @id @default(cuid())
+
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id])
+
+  nailCount       Int?
+  calculatedPrice Float
+}
+
+// ---------------------------------------------------------------------------
+model PolicyAcceptance {
+  id String @id @default(cuid())
+
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  policyVersion String
+  consentText   String
+  acceptedAt    DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+model Review {
+  id         String   @id @default(cuid())
+  clientName String
+  rating     Int
+  text       String
+  approved   Boolean  @default(false)
+  featured   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+model GalleryImage {
+  id        String  @id @default(cuid())
+  imageUrl  String
+  caption   String  @default("")
+  sortOrder Int     @default(0)
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+model AdminUser {
+  id           String @id @default(cuid())
+  email        String @unique
+  passwordHash String
+  name         String @default("Jess")
+  createdAt    DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+model EmailLog {
+  id        String   @id @default(cuid())
+  to        String
+  subject   String
+  body      String
+  bookingId String?
+  status    String   @default("SENT") // SENT | FAILED (stubbed provider)
+  createdAt DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+model AdminSession {
+  id        String   @id @default(cuid())
+  adminId   String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}

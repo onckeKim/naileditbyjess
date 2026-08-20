@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg: #f7f7f5;
+  --color-white: #ffffff;
+  --color-marble: #e7e7e5;
+  --color-silver: #c8c8c5;
+  --color-medium-grey: #888886;
+  --color-charcoal: #2b2b2b;
+  --color-black: #111111;
+  --color-success: #4f7159;
+  --color-warning: #a3743f;
+  --color-error: #934a4a;
+
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
+  --font-script: var(--font-script);
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-charcoal);
+}
+
+::selection {
+  background: var(--color-black);
+  color: var(--color-white);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Marble texture — CSS-only, layered gradients standing in for a photo   */
+/* marble surface. Used sparingly per brand direction (hero, headers,     */
+/* dividers, footer) and never behind long-form text without an overlay.  */
+/* ---------------------------------------------------------------------- */
+.bg-marble {
+  position: relative;
+  background-color: #f2f2f0;
+  background-image:
+    radial-gradient(ellipse 120% 60% at 15% 10%, rgba(17,17,17,0.05), transparent 55%),
+    radial-gradient(ellipse 90% 50% at 85% 30%, rgba(136,136,134,0.20), transparent 60%),
+    radial-gradient(ellipse 140% 70% at 50% 100%, rgba(17,17,17,0.08), transparent 60%),
+    linear-gradient(115deg, transparent 28%, rgba(136,136,134,0.16) 30%, transparent 34%),
+    linear-gradient(72deg, transparent 42%, rgba(17,17,17,0.13) 44%, transparent 49%),
+    linear-gradient(100deg, transparent 58%, rgba(136,136,134,0.15) 61%, transparent 66%),
+    linear-gradient(160deg, #fbfbfa, #eaeae7 45%, #f5f5f3 100%);
+  background-blend-mode: multiply, multiply, multiply, normal, normal, normal, normal;
+}
+
+.bg-marble-dark {
+  position: relative;
+  background-color: #171717;
+  background-image:
+    radial-gradient(ellipse 120% 60% at 20% 15%, rgba(255,255,255,0.06), transparent 55%),
+    radial-gradient(ellipse 100% 50% at 80% 40%, rgba(200,200,197,0.08), transparent 60%),
+    linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.05) 31%, transparent 33%),
+    linear-gradient(70deg, transparent 55%, rgba(255,255,255,0.04) 56%, transparent 59%),
+    linear-gradient(155deg, #171717, #111111 55%, #1c1c1c 100%);
+}
+
+.marble-divider {
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--color-silver) 20%, var(--color-medium-grey) 50%, var(--color-silver) 80%, transparent);
+  opacity: 0.6;
+}
+
+.font-signature {
+  font-family: var(--font-script);
+}
+
+.font-display {
+  font-family: var(--font-serif);
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .fade-in-up {
+    animation: fadeInUp 0.7s ease-out both;
+  }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
