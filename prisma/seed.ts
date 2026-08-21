@@ -6,7 +6,7 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set. Set it to your Postgres connection string before seeding.");
 }
 
-const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL, max: 3 });
 const prisma = new PrismaClient({ adapter });
 
 function slugify(name: string) {
