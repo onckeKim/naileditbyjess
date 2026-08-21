@@ -95,7 +95,7 @@ function ManagerInner() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-      <div className="lg:col-span-2">
+      <div className="lg:col-span-2 min-w-0">
         <div className="flex flex-col gap-2 mb-4">
           <div className="flex flex-col sm:flex-row gap-2">
             <select value={status} onChange={(e) => setStatus(e.target.value)} className="border border-marble rounded-sm px-3 py-2 text-sm">
@@ -171,7 +171,7 @@ function ManagerInner() {
         </div>
       </div>
 
-      <div className="lg:col-span-3">
+      <div className="lg:col-span-3 min-w-0">
         {selected ? (
           <BookingDetailPanel booking={selected} onUpdated={load} declineReasonTemplates={declineReasonTemplates} />
         ) : (
