@@ -109,11 +109,11 @@ function ManagerInner() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search name, email, reference…"
-              className="flex-1 border border-marble rounded-sm px-3 py-2 text-sm"
+              className="flex-1 min-w-0 border border-marble rounded-sm px-3 py-2 text-sm"
             />
           </div>
           <div className="flex flex-col sm:flex-row gap-2">
-            <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="flex-1 border border-marble rounded-sm px-3 py-2 text-sm">
+            <select value={serviceId} onChange={(e) => setServiceId(e.target.value)} className="flex-1 min-w-0 border border-marble rounded-sm px-3 py-2 text-sm">
               <option value="ALL">All Services</option>
               {services.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -121,7 +121,7 @@ function ManagerInner() {
                 </option>
               ))}
             </select>
-            <select value={depositStatus} onChange={(e) => setDepositStatus(e.target.value)} className="flex-1 border border-marble rounded-sm px-3 py-2 text-sm">
+            <select value={depositStatus} onChange={(e) => setDepositStatus(e.target.value)} className="flex-1 min-w-0 border border-marble rounded-sm px-3 py-2 text-sm">
               <option value="ALL">All Deposit Statuses</option>
               {DEPOSIT_FILTERS.map((d) => (
                 <option key={d} value={d}>
