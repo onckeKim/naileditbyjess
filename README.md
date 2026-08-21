@@ -71,13 +71,37 @@ from `db push` to `prisma migrate deploy`.
    (`prisma db push --accept-data-loss && next build`), which syncs the
    schema on every deploy — safe for an already-matching schema, since
    there's nothing to lose.
-5. **Uploaded images won't persist.** `public/uploads` is local disk, which
-   Vercel's serverless functions don't share or persist across
-   deployments/instances. Service photos, gallery images, and inspiration
-   photos uploaded through the admin dashboard will work within a single
-   instance's lifetime and then disappear. Move `src/lib/storage.ts` to
-   object storage (Vercel Blob, S3, R2) before relying on this in
-   production.
+5. **Uploaded images won't persist on Vercel specifically.** `src/lib/storage.ts`
+   uses Netlify Blobs (see "Deploying to Netlify" below) when
+   `process.env.NETLIFY` is set, and falls back to local disk otherwise.
+   Local disk doesn't survive across Vercel's serverless instances/deploys,
+   so uploads through the admin dashboard will disappear if you deploy to
+   Vercel instead of Netlify. If you need Vercel, swap the Vercel branch of
+   `saveUploadedImage` to Vercel Blob (or S3/R2) instead.
+
+## Deploying to Netlify
+
+1. Provision a Postgres database (see "Database" above) and run `db push` +
+   `db seed` against it at least once from your own machine.
+2. Go to [app.netlify.com](https://app.netlify.com) → **Add new site → Import
+   an existing project** → select this repo. The committed `netlify.toml`
+   sets the build command and the `@netlify/plugin-nextjs` runtime, so no
+   manual build configuration is needed.
+3. Add environment variables (same list as the Vercel section below):
+   `DATABASE_URL` (required), `NEXT_PUBLIC_SITE_URL` (set after first deploy
+   to your `*.netlify.app` URL, then redeploy), and optionally
+   `RESEND_API_KEY`, `EMAIL_FROM`, `CRON_SECRET`.
+4. Deploy. Netlify automatically provisions Netlify Blobs for the site — no
+   extra setup needed for image uploads to work through the live admin
+   dashboard.
+5. **Use Supabase's connection pooler, not the direct connection**, for
+   `DATABASE_URL` — serverless platforms generally can't reach Supabase's
+   IPv6-only direct connection. Prefer the **Session pooler** string (works
+   with Prisma's driver adapter without the prepared-statement conflicts
+   that Transaction pooler mode can cause); watch Supabase's free-tier
+   15-connection cap if you see `EMAXCONNSESSION` errors (stop any other
+   process — like a local `npm run dev` — connected to the same database
+   before deploying).
 
 ### Admin login
 
