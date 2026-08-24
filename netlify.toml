@@ -2,5 +2,13 @@
   command = "npm run vercel-build"
   publish = ".next"
 
+  [build.environment]
+    # RESEND_API_KEY is only ever used in src/lib/email.ts, which imports
+    # "server-only" — Next.js hard-fails the build if that module is ever
+    # pulled into client code, so it structurally can't reach the browser.
+    # Netlify's secrets scanner still flags it inside the Turbopack build
+    # cache (not the shipped output), so it's exempted here.
+    SECRETS_SCAN_OMIT_KEYS = "RESEND_API_KEY"
+
 [[plugins]]
   package = "@netlify/plugin-nextjs"
