@@ -13,7 +13,7 @@ import {
   formatRand,
 } from "@/lib/pricing";
 import { parseBusinessHours } from "@/lib/business-hours";
-import { getAvailableTimeSlots, todayIsoDate, addDaysIso } from "@/lib/time-slots";
+import { getAvailableTimeSlots, todayIsoDate, addDaysIso, toMinutes } from "@/lib/time-slots";
 import { AddOnRow } from "./AddOnRow";
 import type { ServiceOption, AddOnSelectionState } from "./types";
 
@@ -73,6 +73,37 @@ function WizardInner({
   const selectedAddOns = addOnServices
     .map((svc) => ({ svc, state: addOns[svc.id] }))
     .filter((x) => x.state?.selected);
+
+  const totalDurationMinutes =
+    (service?.durationMinutes || 0) + selectedAddOns.reduce((sum, { svc }) => sum + (svc.durationMinutes || 0), 0);
+
+  const [busyIntervals, setBusyIntervals] = useState<{ start: number; end: number }[]>([]);
+
+  useEffect(() => {
+    if (!date) {
+      setBusyIntervals([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/bookings/availability?date=${date}`)
+      .then((res) => (res.ok ? res.json() : { busy: [] }))
+      .then((data) => {
+        if (!cancelled) setBusyIntervals(data.busy || []);
+      })
+      .catch(() => {
+        if (!cancelled) setBusyIntervals([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [date]);
+
+  function isSlotBooked(slotTime: string) {
+    if (!totalDurationMinutes) return false;
+    const start = toMinutes(slotTime);
+    const end = start + totalDurationMinutes;
+    return busyIntervals.some((b) => start < b.end && b.start < end);
+  }
 
   const quote = useMemo(() => {
     if (!service) return null;
@@ -298,11 +329,14 @@ function WizardInner({
                   className="w-full border border-marble rounded-sm px-3 py-2.5 text-sm focus:outline-none focus:border-black disabled:bg-bg"
                 >
                   <option value="">{date ? (timeSlots.length ? "Select a time" : "Closed on this day") : "Select a date first"}</option>
-                  {timeSlots.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
+                  {timeSlots.map((t) => {
+                    const booked = isSlotBooked(t);
+                    return (
+                      <option key={t} value={t} disabled={booked}>
+                        {booked ? `${t} — Already Booked` : t}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>

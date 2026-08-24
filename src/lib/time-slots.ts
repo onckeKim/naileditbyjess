@@ -9,7 +9,7 @@ export function dayKeyForDate(dateStr: string): keyof BusinessHours {
   return DAY_KEYS[date.getDay()];
 }
 
-function toMinutes(t: string) {
+export function toMinutes(t: string) {
   const [h, m] = t.split(":").map(Number);
   return h * 60 + m;
 }

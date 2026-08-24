@@ -90,6 +90,29 @@ export async function findConflict(date: string, time: string, durationMinutes: 
   return null;
 }
 
+/** Busy time ranges (in minutes from midnight, buffer already applied) for a given date, for the public availability display. */
+export async function getBusyIntervals(date: string, bufferMinutes = 0) {
+  const candidates = await prisma.booking.findMany({
+    where: {
+      status: { in: ["CONFIRMED", "ACCEPTED_AWAITING_DEPOSIT", "DEPOSIT_SUBMITTED"] },
+      OR: [{ requestedDate: date }, { proposedDate: date }],
+    },
+    include: { service: true, addOns: { include: { service: true } } },
+  });
+
+  const intervals: { start: number; end: number }[] = [];
+  for (const b of candidates) {
+    const effDate = b.proposedDate ?? b.requestedDate;
+    const effTime = b.proposedTime ?? b.requestedTime;
+    if (effDate !== date) continue;
+    const duration = b.service.durationMinutes + b.addOns.reduce((s, a) => s + (a.service.durationMinutes || 0), 0);
+    const start = timeToMinutes(effTime) - bufferMinutes;
+    const end = start + duration + bufferMinutes * 2;
+    intervals.push({ start, end });
+  }
+  return intervals;
+}
+
 export async function createBookingRequest(input: CreateBookingInput) {
   const settings = await prisma.businessSettings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
 
