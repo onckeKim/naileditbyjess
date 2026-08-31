@@ -161,8 +161,9 @@ model Booking {
   // NOT_REQUIRED | AWAITING_DEPOSIT | DEPOSIT_SUBMITTED | DEPOSIT_PAID |
   // DEPOSIT_FAILED | DEPOSIT_REFUNDED | DEPOSIT_FORFEITED
   depositStatus String @default("NOT_REQUIRED")
-  depositMethod String? // e.g. "EFT"
+  depositMethod String? // e.g. "EFT", "YOCO"
   depositRecordedAt DateTime?
+  yocoCheckoutId String? @unique
 
   nailArtCount Int?
 
