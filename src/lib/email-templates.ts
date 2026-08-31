@@ -33,6 +33,12 @@ function secondaryButton(label: string, href: string) {
   return `<a href="${href}" style="display:inline-block;background:#ffffff;color:#111111;text-decoration:none;padding:12px 24px;border-radius:4px;font-size:14px;font-weight:600;border:1px solid #111111;margin:6px 8px 6px 0;">${label}</a>`;
 }
 
+function whatsappHref(number: string, message: string) {
+  const digits = number.replace(/[^0-9]/g, "");
+  const withCountryCode = digits.startsWith("0") ? `27${digits.slice(1)}` : digits;
+  return `https://wa.me/${withCountryCode}?text=${encodeURIComponent(message)}`;
+}
+
 function infoBox(rows: [string, string][]) {
   const lines = rows
     .filter(([, v]) => v !== undefined && v !== null && v !== "")
@@ -172,8 +178,14 @@ export function acceptedAwaitingDepositEmail(opts: { businessName: string; eftDe
     <div style="margin:16px 0;">
       ${ctaButton("Pay Deposit by Card", opts.manageUrl || "#")}
     </div>
-    <p>Or pay by EFT using the details below and keep your proof of payment on hand.</p>
+    <p>Or pay by EFT using the details below, then send your proof of payment via WhatsApp so we can confirm it quickly.</p>
     <pre style="background:#F7F7F5;border:1px solid #E7E7E5;border-radius:8px;padding:16px;white-space:pre-wrap;font-family:inherit;font-size:14px;">${opts.eftDetails}</pre>
+    <div style="margin:16px 0;">
+      ${secondaryButton(
+        "WhatsApp Proof of Payment",
+        whatsappHref(opts.whatsapp, `Hi Jess! Here's my proof of payment for booking ${opts.reference}.`)
+      )}
+    </div>
     <p>Your appointment is not fully secured until the deposit has been recorded. Cancellations within the late-cancellation window will result in forfeiture of the deposit — please review our booking policies on the website.</p>
     `
   );
