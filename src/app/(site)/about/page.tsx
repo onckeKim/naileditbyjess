@@ -23,7 +23,16 @@ export default async function AboutPage() {
 
       <section className="mx-auto max-w-5xl px-4 md:px-8 py-16 grid grid-cols-1 lg:grid-cols-5 gap-12">
         <div className="lg:col-span-2">
-          <PlaceholderArt icon="sparkle" className="aspect-[4/5] w-full rounded-lg border border-marble sticky top-24" label="Nailed It Jess" />
+          {settings.aboutImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={settings.aboutImageUrl}
+              alt="Nailed It Jess"
+              className="aspect-[4/5] w-full rounded-lg border border-marble sticky top-24 object-cover"
+            />
+          ) : (
+            <PlaceholderArt icon="sparkle" className="aspect-[4/5] w-full rounded-lg border border-marble sticky top-24" label="Nailed It Jess" />
+          )}
         </div>
 
         <div className="lg:col-span-3 flex flex-col gap-10">

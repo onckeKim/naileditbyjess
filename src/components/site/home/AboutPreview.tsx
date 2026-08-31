@@ -1,10 +1,27 @@
 import { LinkButton } from "@/components/ui/Button";
 import { PlaceholderArt } from "@/components/ui/PlaceholderArt";
 
-export function AboutPreview({ bio, yearsExperience }: { bio: string; yearsExperience: string }) {
+export function AboutPreview({
+  bio,
+  yearsExperience,
+  imageUrl,
+}: {
+  bio: string;
+  yearsExperience: string;
+  imageUrl?: string | null;
+}) {
   return (
     <section className="mx-auto max-w-7xl px-4 md:px-8 py-20 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-      <PlaceholderArt icon="sparkle" className="aspect-[4/3] w-full rounded-lg border border-marble order-2 lg:order-1" label="In the studio" />
+      {imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl}
+          alt="In the studio"
+          className="aspect-[4/3] w-full rounded-lg border border-marble order-2 lg:order-1 object-cover"
+        />
+      ) : (
+        <PlaceholderArt icon="sparkle" className="aspect-[4/3] w-full rounded-lg border border-marble order-2 lg:order-1" label="In the studio" />
+      )}
 
       <div className="order-1 lg:order-2 flex flex-col gap-5 items-start">
         <span className="text-xs tracking-[0.3em] uppercase text-medium-grey">About the studio</span>

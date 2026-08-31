@@ -26,6 +26,7 @@ type Settings = {
   aboutQualifications: string;
   aboutLocation: string;
   aboutYearsExperience: string;
+  aboutImageUrl: string | null;
   businessHours: string;
   depositPercentage: number;
   lateCancellationHours: number;
@@ -114,13 +115,13 @@ export function SettingsForm({ initial }: { initial: Settings }) {
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState<"logo" | "hero" | null>(null);
+  const [uploading, setUploading] = useState<"logo" | "hero" | "about" | null>(null);
 
   function set<K extends keyof Settings>(key: K, value: Settings[K]) {
     setValues((v) => ({ ...v, [key]: value }));
   }
 
-  async function handleUpload(file: File, field: "logoUrl" | "heroImageUrl", kind: "logo" | "hero") {
+  async function handleUpload(file: File, field: "logoUrl" | "heroImageUrl" | "aboutImageUrl", kind: "logo" | "hero" | "about") {
     setUploading(kind);
     try {
       const formData = new FormData();
@@ -257,6 +258,28 @@ export function SettingsForm({ initial }: { initial: Settings }) {
           </Field>
           <Field label="Qualifications">
             <textarea className={inputClass} rows={2} value={values.aboutQualifications} onChange={(e) => set("aboutQualifications", e.target.value)} />
+          </Field>
+          <Field label="In the Studio Photo">
+            <div className="flex items-center gap-3">
+              {values.aboutImageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={values.aboutImageUrl} alt="" className="h-14 rounded border border-marble" />
+              )}
+              <label className="text-xs underline text-medium-grey cursor-pointer">
+                {uploading === "about" ? "Uploading…" : "Upload photo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0], "aboutImageUrl", "about")}
+                />
+              </label>
+              {values.aboutImageUrl && (
+                <button type="button" onClick={() => set("aboutImageUrl", null)} className="text-xs underline text-medium-grey">
+                  Remove
+                </button>
+              )}
+            </div>
           </Field>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Years of Experience">

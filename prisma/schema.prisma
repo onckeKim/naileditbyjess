@@ -31,6 +31,7 @@ model BusinessSettings {
   aboutQualifications  String @default("Trained and experienced in gel overlays, gel extensions, and nail art application.")
   aboutLocation        String @default("By appointment — location details shared upon booking confirmation.")
   aboutYearsExperience String @default("3+ years")
+  aboutImageUrl        String?
 
   businessHours String @default("{\"mon\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"tue\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"wed\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"thu\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"fri\":{\"open\":\"09:00\",\"close\":\"17:00\",\"closed\":false},\"sat\":{\"open\":\"09:00\",\"close\":\"14:00\",\"closed\":false},\"sun\":{\"open\":\"\",\"close\":\"\",\"closed\":true}}")
 

@@ -18,6 +18,7 @@ const schema = z.object({
   aboutQualifications: z.string().trim().max(2000).optional(),
   aboutLocation: z.string().trim().max(500).optional(),
   aboutYearsExperience: z.string().trim().max(100).optional(),
+  aboutImageUrl: z.string().nullable().optional(),
   businessHours: z.string().optional(),
   depositPercentage: z.number().int().min(0).max(100).optional(),
   lateCancellationHours: z.number().int().min(0).max(240).optional(),

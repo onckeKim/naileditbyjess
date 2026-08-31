@@ -29,7 +29,7 @@ export default async function HomePage() {
         heroImageUrl={settings.heroImageUrl}
       />
 
-      <AboutPreview bio={settings.aboutBio} yearsExperience={settings.aboutYearsExperience} />
+      <AboutPreview bio={settings.aboutBio} yearsExperience={settings.aboutYearsExperience} imageUrl={settings.aboutImageUrl} />
 
       <section className="bg-bg py-20">
         <div className="mx-auto max-w-7xl px-4 md:px-8">
