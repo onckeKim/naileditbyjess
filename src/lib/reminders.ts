@@ -35,7 +35,10 @@ async function sendReminderFor(
       date: booking.requestedDate,
       time: booking.requestedTime,
       message,
-      address: settings.addressPublic ? settings.address : undefined,
+      // Reminders only ever go to already-confirmed clients, so — same as
+      // the confirmation email — the address is always included here,
+      // independent of the public-website addressPublic toggle.
+      address: settings.address,
       whatsapp: settings.whatsapp,
       calendarUrl: googleCalendarUrl({
         title: `Nailed It Jess — ${booking.service.name}`,

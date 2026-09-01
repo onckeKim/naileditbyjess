@@ -55,7 +55,10 @@ export async function buildSummaryContext(
     depositAmount: formatRand(booking.depositAmount),
     depositStatusLabel: DEPOSIT_STATUS_LABELS[booking.depositStatus as DepositStatus] ?? booking.depositStatus,
     remainingBalance: formatRand(booking.remainingBalance),
-    address: opts.includeAddress && settings.addressPublic ? settings.address : undefined,
+    // addressPublic only gates the public website (Home/Contact pages) — a
+    // client who has actually reached a confirmed booking is always shown
+    // the address in their confirmation email, regardless of that toggle.
+    address: opts.includeAddress ? settings.address : undefined,
     whatsapp: settings.whatsapp,
     instagram: settings.instagram,
     prepareText: settings.prepareForAppointmentText,
@@ -66,7 +69,7 @@ export async function buildSummaryContext(
       date: booking.requestedDate,
       time: booking.requestedTime,
       durationMinutes,
-      location: opts.includeAddress && settings.addressPublic ? settings.address : undefined,
+      location: opts.includeAddress ? settings.address : undefined,
     }),
     manageUrl: manageBookingUrl(rawToken),
   };
