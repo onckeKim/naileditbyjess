@@ -66,8 +66,8 @@ function timeToMinutes(t: string) {
 }
 
 export async function findConflict(date: string, time: string, durationMinutes: number, excludeBookingId?: string, bufferMinutes = 0) {
-  const start = timeToMinutes(time) - bufferMinutes;
-  const end = start + durationMinutes + bufferMinutes * 2;
+  const start = timeToMinutes(time);
+  const end = start + durationMinutes + bufferMinutes;
 
   const candidates = await prisma.booking.findMany({
     where: {
@@ -84,7 +84,7 @@ export async function findConflict(date: string, time: string, durationMinutes: 
     if (effDate !== date) continue;
     const bDuration = b.service.durationMinutes + b.addOns.reduce((s, a) => s + (a.service.durationMinutes || 0), 0);
     const bStart = timeToMinutes(effTime);
-    const bEnd = bStart + bDuration;
+    const bEnd = bStart + bDuration + bufferMinutes;
     if (start < bEnd && bStart < end) return b;
   }
   return null;
@@ -106,8 +106,8 @@ export async function getBusyIntervals(date: string, bufferMinutes = 0) {
     const effTime = b.proposedTime ?? b.requestedTime;
     if (effDate !== date) continue;
     const duration = b.service.durationMinutes + b.addOns.reduce((s, a) => s + (a.service.durationMinutes || 0), 0);
-    const start = timeToMinutes(effTime) - bufferMinutes;
-    const end = start + duration + bufferMinutes * 2;
+    const start = timeToMinutes(effTime);
+    const end = start + duration + bufferMinutes;
     intervals.push({ start, end });
   }
   return intervals;
