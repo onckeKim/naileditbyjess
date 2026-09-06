@@ -195,37 +195,6 @@ Authorization: Bearer <CRON_SECRET>
 Vercel Cron (`vercel.json` `crons` entry), a GitHub Actions
 `schedule:` workflow, or a third-party pinger like cron-job.org.
 
-## Online Card Payments (Yoco)
-
-Clients can pay their deposit by EFT (always available, no setup) or, if
-configured, by card via [Yoco](https://developer.yoco.com)'s hosted
-checkout. Both stay available side by side — Yoco doesn't replace the EFT
-option, it's an additional "Pay Deposit by Card" button on the client's
-`/manage/[token]` page whenever a deposit is awaiting payment.
-
-**Setup:**
-
-1. In the Yoco Business Portal, get your **secret API key** (Online
-   Payments → API Keys — starts with `sk_live_` or `sk_test_`).
-2. Register a webhook pointed at `https://yourdomain/api/webhooks/yoco`
-   (Online Payments → Webhooks in the portal, or via Yoco's webhook-creation
-   API) subscribed to at least the `payment.succeeded` event. Copy the
-   **webhook signing secret** it gives you (starts with `whsec_`).
-3. Set `YOCO_SECRET_KEY` and `YOCO_WEBHOOK_SECRET` as environment variables
-   (same place as `DATABASE_URL` etc.) and redeploy.
-
-Without those two variables set, the "Pay Deposit by Card" button shows a
-friendly error telling the client to use EFT instead — nothing breaks.
-
-**How it works:** clicking "Pay Deposit by Card" creates a Yoco checkout
-(`src/lib/yoco.ts`) for the booking's exact deposit amount and redirects the
-client to Yoco's hosted payment page. Yoco's webhook — verified via HMAC-SHA256
-signature, never trusted from the redirect alone — then calls the same
-`recordDeposit()` transition admins use manually, so `depositStatus` moves to
-`DEPOSIT_PAID`, the booking is confirmed, and the confirmation email goes out
-automatically. A failed/declined payment moves it to `DEPOSIT_FAILED` instead,
-leaving the client free to retry or fall back to EFT.
-
 ## Notes for Production / Deliberately Deferred
 
 Built directly into the app: everything above. A few things were

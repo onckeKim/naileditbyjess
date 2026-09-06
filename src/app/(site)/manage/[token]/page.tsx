@@ -7,7 +7,7 @@ import { BOOKING_STATUS_LABELS, DEPOSIT_STATUS_LABELS, type BookingStatus, type 
 import { CANCELLABLE_STATUSES } from "@/lib/booking-actions";
 import { Card, Badge } from "@/components/ui/Card";
 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
-import { ProposalResponseButtons, CancelBookingButton, PayDepositButton } from "@/components/booking/ManageBookingClient";
+import { ProposalResponseButtons, CancelBookingButton } from "@/components/booking/ManageBookingClient";
 import { bookingStatusTone, depositStatusTone } from "@/lib/status-tone";
 
 export const metadata: Metadata = { title: "Manage Your Booking — Nailed It Jess" };
@@ -118,8 +118,7 @@ export default async function ManageBookingPage({ params }: { params: Promise<{ 
 
         {booking.depositStatus === "AWAITING_DEPOSIT" && (
           <div className="mb-6">
-            <PayDepositButton token={token} />
-            <p className="text-xs text-medium-grey mt-2">Or pay by EFT using the banking details in your email.</p>
+            <p className="text-sm text-charcoal">Please pay by EFT using the banking details in your email, then send proof of payment via WhatsApp.</p>
           </div>
         )}
 

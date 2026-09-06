@@ -49,32 +49,6 @@ export function ProposalResponseButtons({ token }: { token: string }) {
   );
 }
 
-export function PayDepositButton({ token }: { token: string }) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function pay() {
-    setBusy(true);
-    setError(null);
-    try {
-      const data = await postJson(`/api/manage/${token}/pay`);
-      window.location.href = data.redirectUrl;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div>
-      <Button disabled={busy} onClick={pay}>
-        {busy ? "Redirecting…" : "Pay Deposit by Card"}
-      </Button>
-      {error && <p className="text-error text-sm mt-2">{error}</p>}
-    </div>
-  );
-}
-
 export function CancelBookingButton({ token }: { token: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);

@@ -174,11 +174,7 @@ export function acceptedAwaitingDepositEmail(opts: { businessName: string; eftDe
     `
     <p>Great news — your appointment request has been <strong>accepted</strong>.</p>
     ${summaryBlock(opts)}
-    <p>To secure your appointment, please pay the deposit — by card (fastest, confirms automatically) or by EFT.</p>
-    <div style="margin:16px 0;">
-      ${ctaButton("Pay Deposit by Card", opts.manageUrl || "#")}
-    </div>
-    <p>Or pay by EFT using the details below, then send your proof of payment via WhatsApp so we can confirm it quickly.</p>
+    <p>To secure your appointment, please pay the deposit by EFT using the details below, then send your proof of payment via WhatsApp so we can confirm it quickly.</p>
     <pre style="background:#F7F7F5;border:1px solid #E7E7E5;border-radius:8px;padding:16px;white-space:pre-wrap;font-family:inherit;font-size:14px;">${opts.eftDetails}</pre>
     <div style="margin:16px 0;">
       ${secondaryButton(
