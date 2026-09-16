@@ -69,10 +69,18 @@ function WizardInner({
   const maxDate = useMemo(() => addDaysIso(todayIsoDate(), maxAdvanceDays), [maxAdvanceDays]);
 
   const service = primaryServices.find((s) => s.id === serviceId) || null;
+  const otherPrimaryServices = useMemo(
+    () => primaryServices.filter((s) => s.id !== serviceId),
+    [primaryServices, serviceId]
+  );
 
-  const selectedAddOns = addOnServices
-    .map((svc) => ({ svc, state: addOns[svc.id] }))
-    .filter((x) => x.state?.selected);
+  const selectedAddOns = useMemo(
+    () =>
+      [...otherPrimaryServices, ...addOnServices]
+        .map((svc) => ({ svc, state: addOns[svc.id] }))
+        .filter((x) => x.state?.selected),
+    [otherPrimaryServices, addOnServices, addOns]
+  );
 
   const totalDurationMinutes =
     (service?.durationMinutes || 0) + selectedAddOns.reduce((sum, { svc }) => sum + (svc.durationMinutes || 0), 0);
@@ -290,17 +298,39 @@ function WizardInner({
         {step === 2 && (
           <div>
             <h2 className="font-display text-2xl font-semibold text-black mb-1">Add-Ons (Optional)</h2>
-            <p className="text-sm text-medium-grey mb-6">Enhance your set with nail art, chrome, or embellishments.</p>
-            <div className="flex flex-col gap-3">
-              {addOnServices.map((svc) => (
-                <AddOnRow
-                  key={svc.id}
-                  service={svc}
-                  state={addOns[svc.id] ?? emptyAddOnState()}
-                  onChange={(next) => setAddOns((prev) => ({ ...prev, [svc.id]: next }))}
-                />
-              ))}
-            </div>
+            <p className="text-sm text-medium-grey mb-6">Add another service to the same appointment, or enhance your set with nail art, chrome, or embellishments.</p>
+
+            {otherPrimaryServices.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xs tracking-[0.25em] uppercase text-medium-grey mb-3">Add Another Service</h3>
+                <div className="flex flex-col gap-3">
+                  {otherPrimaryServices.map((svc) => (
+                    <AddOnRow
+                      key={svc.id}
+                      service={svc}
+                      state={addOns[svc.id] ?? emptyAddOnState()}
+                      onChange={(next) => setAddOns((prev) => ({ ...prev, [svc.id]: next }))}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {addOnServices.length > 0 && (
+              <div>
+                <h3 className="text-xs tracking-[0.25em] uppercase text-medium-grey mb-3">Nail Art &amp; Extras</h3>
+                <div className="flex flex-col gap-3">
+                  {addOnServices.map((svc) => (
+                    <AddOnRow
+                      key={svc.id}
+                      service={svc}
+                      state={addOns[svc.id] ?? emptyAddOnState()}
+                      onChange={(next) => setAddOns((prev) => ({ ...prev, [svc.id]: next }))}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
