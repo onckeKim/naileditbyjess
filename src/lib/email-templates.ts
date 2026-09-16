@@ -120,10 +120,14 @@ export function requestReceivedEmail(opts: {
   businessName: string;
   reference: string;
   serviceName: string;
+  addOnLines?: string[];
   date: string;
   time: string;
   manageUrl?: string;
 }) {
+  const addOnsHtml = opts.addOnLines?.length
+    ? `<p style="margin:8px 0 0;color:#888886;font-size:13px;">Add-ons: ${opts.addOnLines.join(", ")}</p>`
+    : "";
   const html = shell(
     opts.businessName,
     `
@@ -135,6 +139,7 @@ export function requestReceivedEmail(opts: {
       ["Service", opts.serviceName],
       ["Requested", `${opts.date} at ${opts.time}`],
     ])}
+    ${addOnsHtml}
     <p>We'll be in touch shortly.</p>
     ${opts.manageUrl ? `<div style="margin-top:16px;">${secondaryButton("View My Request", opts.manageUrl)}</div>` : ""}
     `
@@ -148,10 +153,14 @@ export function notifyArtistNewRequestEmail(opts: {
   clientName: string;
   clientPhone: string;
   serviceName: string;
+  addOnLines?: string[];
   date: string;
   time: string;
   adminUrl?: string;
 }) {
+  const addOnsHtml = opts.addOnLines?.length
+    ? `<p style="margin:8px 0 0;color:#888886;font-size:13px;">Add-ons: ${opts.addOnLines.join(", ")}</p>`
+    : "";
   const html = shell(
     opts.businessName,
     `
@@ -162,6 +171,7 @@ export function notifyArtistNewRequestEmail(opts: {
       ["Service", opts.serviceName],
       ["Requested", `${opts.date} at ${opts.time}`],
     ])}
+    ${addOnsHtml}
     ${opts.adminUrl ? ctaButton("Review in Dashboard", opts.adminUrl) : ""}
     `
   );

@@ -1,7 +1,7 @@
 import "server-only";
 import { prisma } from "./prisma";
 import { generateBookingReference } from "./reference";
-import { calculateAddOnPrice, calculateDeposit, calculateMainServicePrice } from "./pricing";
+import { calculateAddOnPrice, calculateDeposit, calculateMainServicePrice, formatRand } from "./pricing";
 import { sendEmail } from "./email";
 import { requestReceivedEmail, notifyArtistNewRequestEmail } from "./email-templates";
 import { createManageBookingToken, manageBookingUrl } from "./tokens";
@@ -228,6 +228,10 @@ export async function createBookingRequest(input: CreateBookingInput) {
 
   const rawToken = await createManageBookingToken(booking.id);
 
+  const addOnLines = booking.addOns.map(
+    (a) => `${a.service.name}${a.nailCount ? ` (${a.nailCount} nails)` : ""} — ${formatRand(a.calculatedPrice)}`
+  );
+
   await sendEmail({
     to: booking.clientEmail,
     bookingId: booking.id,
@@ -235,6 +239,7 @@ export async function createBookingRequest(input: CreateBookingInput) {
       businessName: settings.businessName,
       reference: booking.reference,
       serviceName: booking.service.name,
+      addOnLines,
       date: booking.requestedDate,
       time: booking.requestedTime,
       manageUrl: manageBookingUrl(rawToken),
@@ -251,6 +256,7 @@ export async function createBookingRequest(input: CreateBookingInput) {
         clientName: booking.clientName,
         clientPhone: booking.clientPhone,
         serviceName: booking.service.name,
+        addOnLines,
         date: booking.requestedDate,
         time: booking.requestedTime,
       }),
