@@ -19,9 +19,9 @@ export function ProposalResponseButtons({ token }: { token: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingAccept, setPendingAccept] = useState<boolean | null>(null);
 
   async function respond(accept: boolean) {
-    if (!window.confirm(accept ? "Accept this proposed appointment time?" : "Decline this proposed time?")) return;
     setBusy(true);
     setError(null);
     try {
@@ -31,16 +31,34 @@ export function ProposalResponseButtons({ token }: { token: string }) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setBusy(false);
+      setPendingAccept(null);
     }
+  }
+
+  if (pendingAccept !== null) {
+    return (
+      <div>
+        <p className="text-sm text-charcoal mb-3">{pendingAccept ? "Accept this proposed appointment time?" : "Decline this proposed time?"}</p>
+        <div className="flex gap-2">
+          <Button disabled={busy} onClick={() => respond(pendingAccept)}>
+            Confirm
+          </Button>
+          <Button variant="ghost" disabled={busy} onClick={() => setPendingAccept(null)}>
+            Cancel
+          </Button>
+        </div>
+        {error && <p className="text-error text-sm mt-3">{error}</p>}
+      </div>
+    );
   }
 
   return (
     <div>
       <div className="flex flex-col sm:flex-row gap-3">
-        <Button disabled={busy} onClick={() => respond(true)}>
+        <Button disabled={busy} onClick={() => setPendingAccept(true)}>
           Accept New Time
         </Button>
-        <Button variant="secondary" disabled={busy} onClick={() => respond(false)}>
+        <Button variant="secondary" disabled={busy} onClick={() => setPendingAccept(false)}>
           Decline New Time
         </Button>
       </div>
@@ -57,7 +75,6 @@ export function CancelBookingButton({ token }: { token: string }) {
   const [reason, setReason] = useState("");
 
   async function confirmCancel() {
-    if (!window.confirm("Cancel this appointment? Depending on timing, this may forfeit your deposit or incur a cancellation fee per our policies.")) return;
     setBusy(true);
     setError(null);
     try {
@@ -80,6 +97,9 @@ export function CancelBookingButton({ token }: { token: string }) {
 
   return (
     <div className="max-w-md">
+      <p className="text-sm text-charcoal mb-2">
+        Cancel this appointment? Depending on timing, this may forfeit your deposit or incur a cancellation fee per our policies.
+      </p>
       <textarea
         value={reason}
         onChange={(e) => setReason(e.target.value)}
