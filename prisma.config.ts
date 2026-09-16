@@ -10,6 +10,9 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // The CLI (db push, generate, seed) needs a direct/session connection —
+    // Supabase's transaction-mode pooler (used by DATABASE_URL at runtime,
+    // see src/lib/prisma.ts) doesn't reliably support schema-altering DDL.
+    url: process.env["DIRECT_URL"] || process.env["DATABASE_URL"],
   },
 });
