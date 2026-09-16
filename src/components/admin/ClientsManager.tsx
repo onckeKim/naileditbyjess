@@ -19,6 +19,7 @@ export function ClientsManager() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [reasonDraft, setReasonDraft] = useState<Record<string, string>>({});
+  const [confirming, setConfirming] = useState<{ id: string; restricted: boolean } | null>(null);
 
   async function load(query = "") {
     setLoading(true);
@@ -33,15 +34,12 @@ export function ClientsManager() {
   }, []);
 
   async function setRestricted(client: Client, restricted: boolean) {
-    const message = restricted
-      ? `Restrict ${client.name} from booking online?`
-      : `Remove the booking restriction for ${client.name}?`;
-    if (!window.confirm(message)) return;
     await fetch(`/api/admin/clients/${client.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ restricted, restrictionReason: restricted ? reasonDraft[client.id] || "Outstanding cancellation fee" : null }),
     });
+    setConfirming(null);
     load(q);
   }
 
@@ -80,11 +78,23 @@ export function ClientsManager() {
                   <p className="text-xs text-medium-grey mt-1">{c._count.bookings} booking{c._count.bookings === 1 ? "" : "s"}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  {c.restricted ? (
+                  {confirming?.id === c.id ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-charcoal">
+                        {confirming.restricted ? `Restrict ${c.name} from booking online?` : `Remove the booking restriction for ${c.name}?`}
+                      </span>
+                      <Button size="sm" variant="danger" onClick={() => setRestricted(c, confirming.restricted)}>
+                        Confirm
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirming(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : c.restricted ? (
                     <>
                       <Badge tone="error">Restricted</Badge>
                       <p className="text-xs text-medium-grey max-w-xs text-right">{c.restrictionReason}</p>
-                      <Button size="sm" variant="ghost" onClick={() => setRestricted(c, false)}>
+                      <Button size="sm" variant="ghost" onClick={() => setConfirming({ id: c.id, restricted: false })}>
                         Remove Restriction
                       </Button>
                     </>
@@ -96,7 +106,7 @@ export function ClientsManager() {
                         onChange={(e) => setReasonDraft((d) => ({ ...d, [c.id]: e.target.value }))}
                         className="border border-marble rounded-sm px-2 py-1.5 text-xs w-40"
                       />
-                      <Button size="sm" variant="danger" onClick={() => setRestricted(c, true)}>
+                      <Button size="sm" variant="danger" onClick={() => setConfirming({ id: c.id, restricted: true })}>
                         Restrict
                       </Button>
                     </div>

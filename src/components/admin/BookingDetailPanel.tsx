@@ -61,6 +61,7 @@ export function BookingDetailPanel({
   const [error, setError] = useState<string | null>(null);
   const [activeAction, setActiveAction] = useState<ActiveAction>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [pendingConfirm, setPendingConfirm] = useState<{ message: string; action: () => Promise<unknown> } | null>(null);
 
   const [proposeDate, setProposeDate] = useState(booking.requestedDate);
   const [proposeTime, setProposeTime] = useState(booking.requestedTime);
@@ -74,8 +75,7 @@ export function BookingDetailPanel({
   const [rescheduleDate, setRescheduleDate] = useState(booking.requestedDate);
   const [rescheduleTime, setRescheduleTime] = useState(booking.requestedTime);
 
-  async function run(action: () => Promise<unknown>, confirmMessage?: string) {
-    if (confirmMessage && !window.confirm(confirmMessage)) return;
+  async function run(action: () => Promise<unknown>) {
     setBusy(true);
     setError(null);
     try {
@@ -87,6 +87,10 @@ export function BookingDetailPanel({
     } finally {
       setBusy(false);
     }
+  }
+
+  function confirmThen(message: string, action: () => Promise<unknown>) {
+    setPendingConfirm({ message, action });
   }
 
   async function saveNotes() {
@@ -255,7 +259,11 @@ export function BookingDetailPanel({
         {canReconsider && (
           <>
             {status === "PENDING" && (
-              <Button size="sm" disabled={busy} onClick={() => run(() => postJson(`/api/admin/bookings/${booking.id}/accept`), "Accept this booking request?")}>
+              <Button
+                size="sm"
+                disabled={busy}
+                onClick={() => confirmThen("Accept this booking request?", () => postJson(`/api/admin/bookings/${booking.id}/accept`))}
+              >
                 Accept
               </Button>
             )}
@@ -273,7 +281,11 @@ export function BookingDetailPanel({
             <Button
               size="sm"
               disabled={busy}
-              onClick={() => run(() => postJson(`/api/admin/bookings/${booking.id}/respond-proposal`, { accept: true }), "Accept the proposed time on the client's behalf?")}
+              onClick={() =>
+                confirmThen("Accept the proposed time on the client's behalf?", () =>
+                  postJson(`/api/admin/bookings/${booking.id}/respond-proposal`, { accept: true })
+                )
+              }
             >
               Client Accepted (record it)
             </Button>
@@ -281,7 +293,11 @@ export function BookingDetailPanel({
               size="sm"
               variant="secondary"
               disabled={busy}
-              onClick={() => run(() => postJson(`/api/admin/bookings/${booking.id}/respond-proposal`, { accept: false }), "Record that the client declined the proposed time?")}
+              onClick={() =>
+                confirmThen("Record that the client declined the proposed time?", () =>
+                  postJson(`/api/admin/bookings/${booking.id}/respond-proposal`, { accept: false })
+                )
+              }
             >
               Client Declined (record it)
             </Button>
@@ -307,7 +323,11 @@ export function BookingDetailPanel({
 
         {status === "CONFIRMED" && (
           <>
-            <Button size="sm" disabled={busy} onClick={() => run(() => postJson(`/api/admin/bookings/${booking.id}/complete`), "Mark this appointment as completed?")}>
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => confirmThen("Mark this appointment as completed?", () => postJson(`/api/admin/bookings/${booking.id}/complete`))}
+            >
               Mark Completed
             </Button>
             <Button size="sm" variant="secondary" disabled={busy} onClick={() => setActiveAction("reschedule")}>
@@ -329,6 +349,28 @@ export function BookingDetailPanel({
           <p className="text-xs text-medium-grey">This booking is finalised. Use admin notes to record any follow-up.</p>
         )}
       </div>
+
+      {pendingConfirm && (
+        <div className="mt-4 bg-bg border border-marble rounded-lg p-4 flex flex-col gap-3">
+          <p className="text-sm text-charcoal">{pendingConfirm.message}</p>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                const action = pendingConfirm.action;
+                setPendingConfirm(null);
+                run(action);
+              }}
+            >
+              Confirm
+            </Button>
+            <Button size="sm" variant="ghost" disabled={busy} onClick={() => setPendingConfirm(null)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
 
       {activeAction === "propose" && (
         <div className="mt-4 bg-bg border border-marble rounded-lg p-4 flex flex-col gap-3">
@@ -397,12 +439,7 @@ export function BookingDetailPanel({
               size="sm"
               variant="danger"
               disabled={busy}
-              onClick={() =>
-                run(
-                  () => postJson(`/api/admin/bookings/${booking.id}/decline`, { reason: declineReason }),
-                  "Decline this booking request? The client will be notified by email."
-                )
-              }
+              onClick={() => run(() => postJson(`/api/admin/bookings/${booking.id}/decline`, { reason: declineReason }))}
             >
               Confirm Decline
             </Button>
@@ -494,12 +531,7 @@ export function BookingDetailPanel({
               size="sm"
               variant="danger"
               disabled={busy}
-              onClick={() =>
-                run(
-                  () => postJson(`/api/admin/bookings/${booking.id}/cancel`, { reason: cancelReason }),
-                  "Cancel this booking? This may forfeit the deposit and apply a late-cancellation fee — the client will be notified."
-                )
-              }
+              onClick={() => run(() => postJson(`/api/admin/bookings/${booking.id}/cancel`, { reason: cancelReason }))}
             >
               Confirm Cancellation
             </Button>
@@ -521,12 +553,7 @@ export function BookingDetailPanel({
               size="sm"
               variant="danger"
               disabled={busy}
-              onClick={() =>
-                run(
-                  () => postJson(`/api/admin/bookings/${booking.id}/no-show`, { restrictClient }),
-                  `Mark this booking as a no-show?${restrictClient ? " This will also restrict the client from booking online." : ""}`
-                )
-              }
+              onClick={() => run(() => postJson(`/api/admin/bookings/${booking.id}/no-show`, { restrictClient }))}
             >
               Confirm No-Show
             </Button>
