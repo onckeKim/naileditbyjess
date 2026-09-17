@@ -15,7 +15,7 @@ export default async function BookPage() {
     prisma.blockedDate.findMany({ select: { date: true } }),
   ]);
 
-  const primaryServices = services.filter((s) => s.category === "PRIMARY");
+  const primaryServices = services.filter((s) => s.category === "PRIMARY" || s.category === "REMOVAL");
   const addOnServices = services.filter((s) => s.category === "ART_ADDON");
 
   return (
