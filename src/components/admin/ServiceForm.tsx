@@ -92,7 +92,14 @@ export function ServiceForm({
         </div>
         <div>
           <label className="block text-xs text-medium-grey mb-1">Category</label>
-          <select value={values.category} onChange={(e) => set("category", e.target.value as ServiceFormValues["category"])} className="w-full border border-marble rounded-sm px-3 py-2 text-sm">
+          <select
+            value={values.category}
+            onChange={(e) => {
+              const category = e.target.value as ServiceFormValues["category"];
+              setValues((v) => ({ ...v, category, imageUrl: category === "REMOVAL" ? null : v.imageUrl }));
+            }}
+            className="w-full border border-marble rounded-sm px-3 py-2 text-sm"
+          >
             <option value="PRIMARY">Primary Service</option>
             <option value="ART_ADDON">Nail Art / Add-On</option>
             <option value="REMOVAL">Removal Service</option>
@@ -149,24 +156,26 @@ export function ServiceForm({
           <input type="number" min={0} max={100} value={values.depositOverridePercentage ?? ""} onChange={(e) => set("depositOverridePercentage", e.target.value ? Number(e.target.value) : null)} className="w-full border border-marble rounded-sm px-3 py-2 text-sm" placeholder="Uses global default" />
         </div>
 
-        <div className="sm:col-span-2">
-          <label className="block text-xs text-medium-grey mb-1">Image</label>
-          <div className="flex items-center gap-3">
-            {values.imageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={values.imageUrl} alt="" className="w-16 h-16 object-cover rounded border border-marble" />
-            )}
-            <label className="text-xs underline text-medium-grey cursor-pointer">
-              {uploading ? "Uploading…" : values.imageUrl ? "Replace image" : "Upload image"}
-              <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
-            </label>
-            {values.imageUrl && (
-              <button type="button" onClick={() => set("imageUrl", null)} className="text-xs underline text-medium-grey">
-                Remove
-              </button>
-            )}
+        {values.category !== "REMOVAL" && (
+          <div className="sm:col-span-2">
+            <label className="block text-xs text-medium-grey mb-1">Image</label>
+            <div className="flex items-center gap-3">
+              {values.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={values.imageUrl} alt="" className="w-16 h-16 object-cover rounded border border-marble" />
+              )}
+              <label className="text-xs underline text-medium-grey cursor-pointer">
+                {uploading ? "Uploading…" : values.imageUrl ? "Replace image" : "Upload image"}
+                <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
+              </label>
+              {values.imageUrl && (
+                <button type="button" onClick={() => set("imageUrl", null)} className="text-xs underline text-medium-grey">
+                  Remove
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
           <input type="checkbox" checked={values.active} onChange={(e) => set("active", e.target.checked)} className="accent-black" />
