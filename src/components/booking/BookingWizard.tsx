@@ -4,7 +4,6 @@ import { useMemo, useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { PlaceholderArt } from "@/components/ui/PlaceholderArt";
 import {
   describeServicePrice,
   calculateMainServicePrice,
@@ -272,11 +271,9 @@ function WizardInner({
                       selected ? "border-black ring-1 ring-black" : "border-marble hover:border-medium-grey"
                     }`}
                   >
-                    {s.imageUrl ? (
+                    {s.imageUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={s.imageUrl} alt={s.name} className="w-full aspect-[16/9] object-cover" />
-                    ) : (
-                      <PlaceholderArt icon="drop" className="w-full aspect-[16/9]" />
                     )}
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-2">
