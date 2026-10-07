@@ -1,0 +1,17 @@
+name: Appointment reminders cron
+
+on:
+  schedule:
+    # Hourly, at minute 7 (avoids the :00 stampede on shared runners).
+    - cron: "7 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping-reminders:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call reminders endpoint
+        run: |
+          curl -fsS \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            https://naileditjess.co.za/api/cron/reminders
