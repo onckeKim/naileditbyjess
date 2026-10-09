@@ -3,6 +3,7 @@ import { getBookingForToken } from "@/lib/tokens";
 import { getSettings } from "@/lib/settings";
 import { formatRand } from "@/lib/pricing";
 import { googleCalendarUrl } from "@/lib/calendar";
+import { addDaysIso } from "@/lib/time-slots";
 import { BOOKING_STATUS_LABELS, DEPOSIT_STATUS_LABELS, type BookingStatus, type DepositStatus } from "@/lib/types";
 import { CANCELLABLE_STATUSES } from "@/lib/booking-actions";
 import { Card, Badge } from "@/components/ui/Card";
@@ -119,6 +120,9 @@ export default async function ManageBookingPage({ params }: { params: Promise<{ 
         {booking.depositStatus === "AWAITING_DEPOSIT" && (
           <div className="mb-6">
             <p className="text-sm text-charcoal">Please pay by EFT using the banking details in your email, then send proof of payment via WhatsApp.</p>
+            <p className="text-sm text-charcoal mt-1">
+              <strong>The deposit must be paid by {addDaysIso(booking.requestedDate, -3)} — 3 days before your appointment date.</strong>
+            </p>
           </div>
         )}
 

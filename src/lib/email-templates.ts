@@ -3,6 +3,8 @@
 // header, a black wordmark, large serif headings, black CTA buttons, soft
 // grey borders — matching the public site's brand.
 
+import { addDaysIso } from "./time-slots";
+
 const HEADER = (business: string) => `
   <div style="background:linear-gradient(120deg,#111111 0%,#2b2b2b 45%,#888886 75%,#c8c8c5 100%);padding:28px 32px;border-radius:12px 12px 0 0;">
     <p style="margin:0;color:#f7f7f5;letter-spacing:0.18em;font-size:11px;text-transform:uppercase;font-family:Arial,Helvetica,sans-serif;">Nailed It Jess</p>
@@ -179,12 +181,14 @@ export function notifyArtistNewRequestEmail(opts: {
 }
 
 export function acceptedAwaitingDepositEmail(opts: { businessName: string; eftDetails: string } & BookingSummaryContext) {
+  const depositDeadline = addDaysIso(opts.date, -3);
   const html = shell(
     opts.businessName,
     `
     <p>Great news — your appointment request has been <strong>accepted</strong>.</p>
     ${summaryBlock(opts)}
     <p>To secure your appointment, please pay the deposit by EFT using the details below, then send your proof of payment via WhatsApp so we can confirm it quickly.</p>
+    <p><strong>The deposit must be paid by ${depositDeadline} — 3 days before your appointment date.</strong></p>
     <pre style="background:#F7F7F5;border:1px solid #E7E7E5;border-radius:8px;padding:16px;white-space:pre-wrap;font-family:inherit;font-size:14px;">${opts.eftDetails}</pre>
     <div style="margin:16px 0;">
       ${secondaryButton(
