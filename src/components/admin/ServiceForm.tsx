@@ -15,7 +15,6 @@ export type ServiceFormValues = {
   priceFullSet: number | null;
   durationMinutes: number;
   depositOverridePercentage: number | null;
-  imageUrl: string | null;
   active: boolean;
 };
 
@@ -41,27 +40,10 @@ export function ServiceForm({
 }) {
   const [values, setValues] = useState<ServiceFormValues>(initial);
   const [busy, setBusy] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function set<K extends keyof ServiceFormValues>(key: K, value: ServiceFormValues[K]) {
     setValues((v) => ({ ...v, [key]: value }));
-  }
-
-  async function handleUpload(file: File) {
-    setUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      set("imageUrl", data.url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed.");
-    } finally {
-      setUploading(false);
-    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -94,10 +76,7 @@ export function ServiceForm({
           <label className="block text-xs text-medium-grey mb-1">Category</label>
           <select
             value={values.category}
-            onChange={(e) => {
-              const category = e.target.value as ServiceFormValues["category"];
-              setValues((v) => ({ ...v, category, imageUrl: category === "REMOVAL" ? null : v.imageUrl }));
-            }}
+            onChange={(e) => set("category", e.target.value as ServiceFormValues["category"])}
             className="w-full border border-marble rounded-sm px-3 py-2 text-sm"
           >
             <option value="PRIMARY">Primary Service</option>
@@ -155,27 +134,6 @@ export function ServiceForm({
           <label className="block text-xs text-medium-grey mb-1">Deposit Override % (optional)</label>
           <input type="number" min={0} max={100} value={values.depositOverridePercentage ?? ""} onChange={(e) => set("depositOverridePercentage", e.target.value ? Number(e.target.value) : null)} className="w-full border border-marble rounded-sm px-3 py-2 text-sm" placeholder="Uses global default" />
         </div>
-
-        {values.category !== "REMOVAL" && (
-          <div className="sm:col-span-2">
-            <label className="block text-xs text-medium-grey mb-1">Image</label>
-            <div className="flex items-center gap-3">
-              {values.imageUrl && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={values.imageUrl} alt="" className="w-16 h-16 object-cover rounded border border-marble" />
-              )}
-              <label className="text-xs underline text-medium-grey cursor-pointer">
-                {uploading ? "Uploading…" : values.imageUrl ? "Replace image" : "Upload image"}
-                <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])} />
-              </label>
-              {values.imageUrl && (
-                <button type="button" onClick={() => set("imageUrl", null)} className="text-xs underline text-medium-grey">
-                  Remove
-                </button>
-              )}
-            </div>
-          </div>
-        )}
 
         <label className="flex items-center gap-2 text-sm sm:col-span-2">
           <input type="checkbox" checked={values.active} onChange={(e) => set("active", e.target.checked)} className="accent-black" />

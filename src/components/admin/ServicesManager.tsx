@@ -22,7 +22,6 @@ const EMPTY: ServiceFormValues = {
   priceFullSet: null,
   durationMinutes: 60,
   depositOverridePercentage: null,
-  imageUrl: null,
   active: true,
 };
 

@@ -271,10 +271,7 @@ function WizardInner({
                       selected ? "border-black ring-1 ring-black" : "border-marble hover:border-medium-grey"
                     }`}
                   >
-                    {s.imageUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={s.imageUrl} alt={s.name} className="w-full aspect-[16/9] object-cover" />
-                    )}
+                    <div className="h-1.5 brand-gradient-bar" aria-hidden="true" />
                     <div className="p-4">
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-display text-lg text-black">{s.name}</p>

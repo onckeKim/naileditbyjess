@@ -63,6 +63,13 @@ body {
   opacity: 0.6;
 }
 
+/* Deliberate stand-in for a photo on image-free cards (services, etc.) —
+   same gradient as the email header, so the brand reads the same whether a
+   card has a photo or not. Never a "missing image" placeholder. */
+.brand-gradient-bar {
+  background: linear-gradient(120deg, var(--color-black) 0%, var(--color-charcoal) 45%, var(--color-medium-grey) 75%, var(--color-silver) 100%);
+}
+
 .font-signature {
   font-family: var(--font-script);
 }

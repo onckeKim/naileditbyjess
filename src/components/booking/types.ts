@@ -10,7 +10,6 @@ export type ServiceOption = {
   pricePerNail: number | null;
   priceFullSet: number | null;
   durationMinutes: number;
-  imageUrl: string | null;
   depositOverridePercentage: number | null;
 };
 
